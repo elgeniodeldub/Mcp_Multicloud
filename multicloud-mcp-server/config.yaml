@@ -1,0 +1,45 @@
+server:
+  name: "multicloud-mcp-server"
+  version: "0.1.0"
+  transport: "stdio"
+  http:
+    host: "0.0.0.0"
+    port: 8080
+
+providers:
+  aws:
+    enabled: true
+    command: "uvx"
+    args: ["awslabs.core-mcp-server@latest"]
+    env:
+      AWS_REGION: "us-east-1"
+      FASTMCP_LOG_LEVEL: "ERROR"
+    namespace: "aws"
+    health_check_interval: 30
+    timeout: 60
+    description: "AWS MCP Server"
+
+  azure:
+    enabled: true
+    command: "npx"
+    args: ["-y", "@azure/mcp-server@latest"]
+    env:
+      AZURE_SUBSCRIPTION_ID: "${AZURE_SUBSCRIPTION_ID}"
+    namespace: "azure"
+    health_check_interval: 30
+    timeout: 60
+    description: "Azure MCP Server"
+
+multicloud:
+  enabled: true
+  tools:
+    - cost_comparison
+    - resource_mapper
+    - list_providers
+    - discover_resources
+    - security_posture
+    - compliance_checker
+
+logging:
+  level: "INFO"
+  format: "json"

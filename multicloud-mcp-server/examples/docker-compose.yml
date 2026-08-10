@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  multicloud-mcp:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: multicloud-mcp
+    environment:
+      - MULTICLOUD_SERVER__TRANSPORT=http
+      - MULTICLOUD_SERVER__HTTP__PORT=8080
+      - MULTICLOUD_LOG_LEVEL=INFO
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
+    ports:
+      - "8080:8080"
+    command: ["--transport", "http", "--port", "8080", "--config", "/app/config.yaml"]
+    volumes:
+      - ../config.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

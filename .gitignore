@@ -1,0 +1,23 @@
+# Python and local tooling
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+multicloud-mcp-server/.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.hypothesis/
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

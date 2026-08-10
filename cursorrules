@@ -1,0 +1,107 @@
+# Cursor Rules for Multicloud MCP Server
+# Estas reglas guían a Cursor/Cline/Codex para trabajar correctamente en este proyecto
+
+## 🎯 Contexto del Proyecto
+
+Este es un **servidor MCP (Model Context Protocol)** que actúa como **Proxy Aggregator** unificando los servidores MCP oficiales de AWS (`awslabs/mcp`) y Azure (`microsoft/mcp`).
+
+Arquitectura clave:
+- **Namespace**: `provider__tool_name` (ej: `aws__s3__list_buckets`)
+- **Transporte**: stdio (IDEs) y HTTP (remoto, stateless)
+- **Resiliencia**: Circuit breaker + health checks + retry
+- **Cache**: TTL 5min para catálogo de tools
+
+## 📋 Reglas de Código
+
+### Python
+- Usar **Python 3.11+** con type hints **estrictos** (`mypy --strict` debe pasar)
+- Todo I/O debe ser **async/await**. NUNCA usar blocking I/O en el event loop
+- Line-length máximo **100 caracteres**
+- Imports ordenados automáticamente por `ruff`
+- Docstrings en estilo **Google**
+
+### Logging
+- Usar SIEMPRE `structlog` en lugar de `logging` estándar
+- Formato: `logger.bind(contexto="valor").info("mensaje", key="value")`
+- Nunca loguear credenciales ni secretos
+
+### Manejo de Errores
+- Distinguir entre:
+  - `ToolNotFoundError`: tool no existe en catálogo
+  - `ProviderNotFoundError`: provider no registrado
+  - Errores de red: retry con tenacity
+  - Errores de negocio: propagar al cliente
+- Los providers individuales NO deben hacer fallar todo el servidor
+
+### Tests
+- Cada nueva tool necesita al menos 1 test
+- Usar `pytest-asyncio` con `@pytest.mark.asyncio`
+- Mockear providers upstream con `unittest.mock.AsyncMock`
+- Tests de integración en `tests/integration/`
+
+## 🏗️ Patrones Arquitectónicos
+
+### Agregar un nuevo Provider
+1. Crear `src/multicloud_mcp/providers/<nombre>.py` heredando de `ProviderAdapter`
+2. Implementar: `connect()`, `disconnect()`, `list_tools()`, `call_tool()`, `health_check()`
+3. Registrar en `server.py` en el método `initialize()`
+4. Agregar tests en `tests/test_providers.py`
+
+### Agregar una Tool Multicloud Nativa
+1. Crear `src/multicloud_mcp/tools/<nombre>.py`
+2. Implementar `get_tool_info()` → retorna `ToolInfo`
+3. Implementar `execute()` → retorna `dict`
+4. Registrar en `server.py` en `_get_multicloud_tools()`
+5. Agregar test en `tests/test_multicloud_tools.py`
+
+### Modificar el Router
+- El router maneja namespace con `__` como separador
+- No usar `__` en nombres de namespace de providers
+- El cache se invalida con `router.refresh_tools(force=True)`
+
+## 🚫 Qué NO hacer
+
+- NO modificar la API de tools existentes (`aws__*`, `azure__*`)
+- NO agregar dependencias sin actualizar `pyproject.toml`
+- NO usar `print()` para debugging, usar `structlog`
+- NO hardcodear credenciales ni URLs
+- NO hacer imports circulares entre `server.py` y `tools/`
+- NO olvidar manejar `NotImplementedError` en STUBs
+
+## ✅ Checklist antes de commit
+
+Antes de hacer commit, ejecutar:
+```bash
+make check    # lint + type-check + tests
+```
+
+O manualmente:
+```bash
+ruff check src tests      # Linting
+ruff format src tests     # Formato
+mypy src                  # Type checking
+pytest                    # Tests
+```
+
+## 📝 Conventional Commits
+
+Usar prefijos en commits:
+- `feat:` nueva funcionalidad
+- `fix:` corrección de bug
+- `docs:` cambios en documentación
+- `test:` cambios en tests
+- `refactor:` refactorización
+- `chore:` tareas de mantenimiento
+
+Ejemplo: `feat: add multicloud__discover_resources tool`
+
+## 🔗 Referencias Útiles
+
+- MCP Spec: https://modelcontextprotocol.io
+- AWS MCP Server: https://github.com/awslabs/mcp
+- Azure MCP Server: https://github.com/microsoft/mcp
+- Archivos de referencia en este repo:
+  - `docs/architecture.md` — Arquitectura completa
+  - `docs/configuration.md` — Guía de configuración
+  - `TASKS.md` — Backlog priorizado
+  - `CODEX_SETUP.md` — Guía para agentes de código
