@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0] - 2024-XX-XX
+## [0.1.0] - 2026-08-10
 
 ### Added
 - Initial release of Multicloud MCP Server

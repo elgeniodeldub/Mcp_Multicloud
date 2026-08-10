@@ -1,43 +1,33 @@
 # Multicloud MCP Server
 
-Servidor MCP unificado para AWS y Azure con namespaces por proveedor, herramientas multicloud y transporte `stdio` o HTTP.
+This directory contains the Python implementation. The canonical project documentation lives at the repository root:
 
-## Instalación
+- `../README.md`
+- `../docs/ARCHITECTURE.md`
+- `../docs/FEATURES.md`
+- `../docs/TOOLS.md`
+- `../docs/CONFIGURATION.md`
+- `../docs/SECURITY.md`
+- `../docs/OPERATIONS.md`
+- `../docs/DEVELOPMENT.md`
+
+## Quick start
 
 ```bash
-pip install multicloud-mcp-server
-multicloud-mcp-server
+python -m venv .venv
+python -m pip install --upgrade pip
+python -m pip install -e .
+multicloud-mcp-server --transport stdio
 ```
 
-## HTTP seguro
+## Quality
 
-El HTTP escucha en `127.0.0.1` por defecto. Para una configuración de producción usa `examples/config.secure.yaml`:
-
-```powershell
-$env:MULTICLOUD_API_KEY = "super-secret-token"
-multicloud-mcp-server --config examples/config.secure.yaml
+```bash
+python -m pytest
+python -m ruff check .
+python -m mypy --strict src
 ```
 
-No expongas el servidor HTTP directamente a Internet. Usa autenticación, TLS y controles de red apropiados. Consulta [Seguridad HTTP](docs/security.md).
+HTTP defaults to `127.0.0.1`. Use `examples/config.secure.yaml` for hardened HTTP configuration.
 
-## Herramientas
-
-| Tool | Descripción |
-|------|-------------|
-| `finops__get_actual_costs` | Costos reales no amortizados de AWS Cost Explorer y Azure Cost Management |
-| `multicloud__map_resource` | Mapeo de recursos entre nubes |
-| `multicloud__list_providers` | Estado de los providers |
-| `multicloud__discover_resources` | Descubrimiento cross-cloud |
-| `multicloud__security_posture` | Análisis de seguridad |
-| `multicloud__compliance_check` | Validación CIS/NIST |
-
-Las herramientas nativas de AWS y Azure conservan sus namespaces (`aws__*` y `azure__*`).
-
-## Documentación
-
-- [Arquitectura](docs/architecture.md)
-- [Configuración](docs/configuration.md)
-- [Seguridad HTTP](docs/security.md)
-- [Contribuir](docs/contributing.md)
-
-Licencia Apache 2.0.
+The live FinOps architecture is documented in [docs/finops.md](docs/finops.md).

@@ -1,9 +1,9 @@
-# Documentation Index
+# Documentation
 
 - [Architecture](ARCHITECTURE.md)
 - [Features](FEATURES.md)
-- [MCP Tools](TOOLS.md)
+- [Tools](TOOLS.md)
 - [Configuration](CONFIGURATION.md)
+- [Security](SECURITY.md)
 - [Operations](OPERATIONS.md)
 - [Development](DEVELOPMENT.md)
-- [Contributing](../CONTRIBUTING.md)

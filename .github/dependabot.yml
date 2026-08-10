@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /multicloud-mcp-server
+    schedule:
+      interval: weekly
+    groups:
+      python-patch-minor:
+        update-types: [patch, minor]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /multicloud-mcp-server
+    schedule:
+      interval: weekly

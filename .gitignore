@@ -24,3 +24,12 @@ htmlcov/
 Thumbs.db
 .vscode/
 .idea/
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.yaml
+config.local.yaml
+.aws/
+.azure/

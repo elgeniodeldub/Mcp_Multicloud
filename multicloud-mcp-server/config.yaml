@@ -26,7 +26,7 @@ providers:
   aws:
     enabled: true
     command: "uvx"
-    args: ["awslabs.core-mcp-server@latest"]
+    args: ["awslabs.core-mcp-server@1.0.27"]
     env:
       AWS_REGION: "us-east-1"
       FASTMCP_LOG_LEVEL: "ERROR"
@@ -38,7 +38,7 @@ providers:
   azure:
     enabled: true
     command: "npx"
-    args: ["-y", "@azure/mcp-server@latest"]
+    args: ["-y", "@azure/mcp@2.0.5"]
     env:
       AZURE_SUBSCRIPTION_ID: "${AZURE_SUBSCRIPTION_ID}"
     namespace: "azure"
@@ -50,6 +50,9 @@ multicloud:
   enabled: true
   tools:
     - actual_costs
+    - get_cost
+    - breakdown
+    - compare
     - resource_mapper
     - list_providers
     - discover_resources

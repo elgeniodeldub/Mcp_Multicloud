@@ -11,3 +11,16 @@ tests
 .env
 .env.*
 config.local.yaml
+.gitignore
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.yaml
+.aws/
+.azure/
+dist/
+build/
+.coverage
+coverage.xml

@@ -23,15 +23,21 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Route
 
 from multicloud_mcp.config import Settings
+from multicloud_mcp.finops.exceptions import FinOpsError
+from multicloud_mcp.finops.services.cost_service import FinOpsCostService
 from multicloud_mcp.health import HealthMonitor
-from multicloud_mcp.providers.aws import AWSProvider
-from multicloud_mcp.providers.azure import AzureProvider
 from multicloud_mcp.providers.base import ProviderAdapter, ToolInfo
+from multicloud_mcp.providers.registry import (
+    DisabledProviderError,
+    ProviderRegistryError,
+    build_provider_registry,
+)
 from multicloud_mcp.router import ProviderRouter, ToolNotFoundError
 from multicloud_mcp.security import ToolBlockedError, ToolSecurityPolicy
 from multicloud_mcp.security.auth import BearerAuthenticator
 from multicloud_mcp.security.middleware import SecurityMiddleware
 from multicloud_mcp.security.rate_limit import InMemoryRateLimiter
+from multicloud_mcp.tools.factory import NativeToolContext, build_native_tool_registry
 
 logger = structlog.get_logger()
 
@@ -45,6 +51,12 @@ class MulticloudMCPServer:
         self.health_monitor = HealthMonitor(check_interval=30.0)
         self.server = Server(settings.server.name)
         self.security_policy = ToolSecurityPolicy(settings.security.tool_policy.mode)
+        self.finops_service = FinOpsCostService()
+        self.provider_registry = build_provider_registry()
+        self.native_tools = build_native_tool_registry(
+            NativeToolContext(self.router, self.health_monitor, self.finops_service),
+            settings.multicloud.tools,
+        )
         self.http_metrics: dict[str, int] = {
             "requests": 0,
             "auth_failures": 0,
@@ -64,7 +76,7 @@ class MulticloudMCPServer:
             tools = await self.router.refresh_tools()
 
             if self.settings.multicloud.enabled:
-                tools.extend(self._get_multicloud_tools())
+                tools.extend(self.native_tools.list_tools())
 
             return [
                 Tool(
@@ -80,8 +92,9 @@ class MulticloudMCPServer:
             """Route tool call to appropriate provider."""
             try:
                 self.security_policy.authorize_tool(name)
-                if name.startswith(("multicloud__", "finops__")):
-                    result = await self._call_multicloud_tool(name, arguments)
+                native_tool = self.native_tools.get_optional(name)
+                if native_tool is not None:
+                    result = await native_tool.execute(arguments)
                     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
                 result = await self.router.call_tool(name, arguments)
@@ -119,66 +132,11 @@ class MulticloudMCPServer:
                         ),
                     )
                 ]
+            except FinOpsError as e:
+                return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
             except Exception as e:
                 logger.error("tool_call_failed", tool=name, transport="stdio", error=str(e))
                 return [TextContent(type="text", text="Internal server error")]
-
-    def _get_multicloud_tools(self) -> list[ToolInfo]:
-        """Return multicloud native tool definitions."""
-        from multicloud_mcp.tools.actual_costs import ActualCostsTool
-        from multicloud_mcp.tools.compliance import ComplianceCheckerTool
-        from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
-        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
-        from multicloud_mcp.tools.list_providers import ListProvidersTool
-        from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
-        from multicloud_mcp.tools.security_posture import SecurityPostureTool
-
-        tools = []
-        enabled = set(self.settings.multicloud.tools)
-
-        if "actual_costs" in enabled:
-            tools.append(ActualCostsTool().get_tool_info())
-        if "list_price_comparison" in enabled:
-            tools.append(ListPriceComparisonTool().get_tool_info())
-        if "resource_mapper" in enabled:
-            tools.append(ResourceMapperTool().get_tool_info())
-        if "list_providers" in enabled:
-            tools.append(ListProvidersTool().get_tool_info())
-        if "discover_resources" in enabled:
-            tools.append(DiscoverResourcesTool().get_tool_info())
-        if "security_posture" in enabled:
-            tools.append(SecurityPostureTool().get_tool_info())
-        if "compliance_checker" in enabled:
-            tools.append(ComplianceCheckerTool().get_tool_info())
-
-        return tools
-
-    async def _call_multicloud_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        """Execute multicloud native tools."""
-        from multicloud_mcp.tools.actual_costs import ActualCostsTool
-        from multicloud_mcp.tools.compliance import ComplianceCheckerTool
-        from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
-        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
-        from multicloud_mcp.tools.list_providers import ListProvidersTool
-        from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
-        from multicloud_mcp.tools.security_posture import SecurityPostureTool
-
-        if name == "finops__get_actual_costs":
-            return await ActualCostsTool().execute(arguments)
-        elif name == "finops__compare_list_prices":
-            return await ListPriceComparisonTool().execute(arguments)
-        elif name == "multicloud__map_resource":
-            return await ResourceMapperTool().execute(arguments)
-        elif name == "multicloud__list_providers":
-            return await ListProvidersTool().execute(arguments, self.router, self.health_monitor)
-        elif name == "multicloud__discover_resources":
-            return await DiscoverResourcesTool().execute(arguments, self.router)
-        elif name == "multicloud__security_posture":
-            return await SecurityPostureTool().execute(arguments, self.router)
-        elif name == "multicloud__compliance_check":
-            return await ComplianceCheckerTool().execute(arguments, self.router)
-        else:
-            return {"error": f"Unknown multicloud tool: {name}"}
 
     async def initialize(self) -> None:
         """Initialize all configured providers."""
@@ -188,34 +146,31 @@ class MulticloudMCPServer:
                 continue
 
             try:
-                if name == "aws":
-                    provider: ProviderAdapter = AWSProvider(
-                        command=config.command,
-                        args=config.args,
-                        env=config.env,
-                        timeout=config.timeout,
-                    )
-                elif name == "azure":
-                    provider = AzureProvider(
-                        command=config.command,
-                        args=config.args,
-                        env=config.env,
-                        timeout=config.timeout,
-                    )
-                else:
-                    logger.warning("unknown_provider", name=name)
-                    continue
+                provider: ProviderAdapter = self.provider_registry.create(name, config)
 
                 await provider.connect()
                 self.router.register_provider(provider)
                 self.health_monitor.register_provider(name, provider)
                 logger.info("provider_initialized", name=name)
 
+            except DisabledProviderError:
+                logger.info("provider_skipped", name=name, reason="disabled")
+            except ProviderRegistryError as e:
+                logger.warning("provider_unavailable", name=name, error=str(e))
             except Exception as e:
                 logger.error("provider_init_failed", name=name, error=str(e))
 
         await self.router.refresh_tools(force=True)
         await self.health_monitor.start()
+
+    def _get_multicloud_tools(self) -> list[ToolInfo]:
+        """Backward-compatible view of the native tool registry."""
+        return self.native_tools.list_tools()
+
+    async def _call_multicloud_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Backward-compatible native tool entry point backed by the registry."""
+        tool = self.native_tools.get(name)
+        return await tool.execute(arguments)
 
     async def shutdown(self) -> None:
         """Gracefully shutdown all providers."""
@@ -258,7 +213,7 @@ class MulticloudMCPServer:
                 if method == "tools/list":
                     tools = await self.router.refresh_tools()
                     if self.settings.multicloud.enabled:
-                        tools.extend(self._get_multicloud_tools())
+                        tools.extend(self.native_tools.list_tools())
                     return JSONResponse(
                         {
                             "jsonrpc": "2.0",
@@ -289,8 +244,9 @@ class MulticloudMCPServer:
                     provider = tool_name.split("__", 1)[0]
                     try:
                         self.security_policy.authorize_tool(tool_name)
-                        if tool_name.startswith(("multicloud__", "finops__")):
-                            result = await self._call_multicloud_tool(tool_name, arguments)
+                        native_tool = self.native_tools.get_optional(tool_name)
+                        if native_tool is not None:
+                            result = await native_tool.execute(arguments)
                             result = {
                                 "content": [{"type": "text", "text": json.dumps(result, indent=2)}]
                             }
@@ -313,6 +269,10 @@ class MulticloudMCPServer:
                     except ToolNotFoundError:
                         return self._jsonrpc_error(
                             body.get("id"), -32601, "tool_not_found", 404, request_id
+                        )
+                    except FinOpsError as error:
+                        return self._jsonrpc_error(
+                            body.get("id"), -32010, str(error), 400, request_id
                         )
                     finally:
                         self.http_metrics["tool_calls"] += 1

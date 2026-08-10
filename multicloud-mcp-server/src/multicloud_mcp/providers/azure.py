@@ -28,7 +28,7 @@ class AzureProvider(ProviderAdapter):
             name="azure",
             namespace="azure",
             command=command,
-            args=args or ["-y", "@azure/mcp-server@latest"],
+            args=args or ["-y", "@azure/mcp@2.0.5"],
             env=env or {},
             timeout=timeout,
         )

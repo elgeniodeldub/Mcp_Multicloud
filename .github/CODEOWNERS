@@ -1,0 +1,7 @@
+# Protect the CI, packaging, container, provider, and runtime security surface.
+* @elgeniodeldub
+/.github/workflows/ @elgeniodeldub
+/multicloud-mcp-server/Dockerfile @elgeniodeldub
+/multicloud-mcp-server/pyproject.toml @elgeniodeldub
+/multicloud-mcp-server/src/multicloud_mcp/security/ @elgeniodeldub
+/multicloud-mcp-server/src/multicloud_mcp/providers/ @elgeniodeldub
