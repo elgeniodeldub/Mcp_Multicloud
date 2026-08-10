@@ -1,72 +1,31 @@
-# Arquitectura del Multicloud MCP Server
+# Arquitectura
 
-## VisiÃ³n General
+El servidor implementa el patrón Proxy Aggregator para unificar los servidores MCP de AWS y Azure.
 
-El Multicloud MCP Server implementa el patrÃ³n **Proxy Aggregator** sobre el protocolo MCP (Model Context Protocol), actuando como fachada unificada para mÃºltiples servidores MCP de nube.
+## Flujo
 
-## Diagrama de Componentes
-
-```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                      MCP CLIENT                              â”‚
-â”‚         (Claude Desktop, Cursor, VS Code, etc.)             â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                           â”‚ stdio / HTTP (stateless)
-                           â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚              MULTICLOUD MCP SERVER                           â”‚
-â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
-â”‚  â”‚   Server    â”‚  â”‚   Router    â”‚  â”‚  Health Monitor     â”‚ â”‚
-â”‚  â”‚  (FastMCP)  â”‚  â”‚  + Cache    â”‚  â”‚  + Circuit Breaker  â”‚ â”‚
-â”‚  â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
-â”‚         â”‚                â”‚                                   â”‚
-â”‚    â”Œâ”€â”€â”€â”€â”´â”€â”€â”€â”€â”      â”Œâ”€â”€â”€â”€â”´â”€â”€â”€â”€â”                            â”‚
-â”‚    â”‚  AWS    â”‚      â”‚  Azure  â”‚      [GCP, OCI, ...]       â”‚
-â”‚    â”‚ Adapter â”‚      â”‚ Adapter â”‚                            â”‚
-â”‚    â”‚ (stdio) â”‚      â”‚ (stdio) â”‚                            â”‚
-â”‚    â””â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”˜      â””â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”˜                            â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-          â”‚                â”‚
-          â–¼                â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  AWS MCP Server â”‚  â”‚ Azure MCP Serverâ”‚
-â”‚  (awslabs/mcp)  â”‚  â”‚ (microsoft/mcp) â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+```text
+Cliente MCP → transporte stdio/HTTP → servidor MCP → router → adaptador AWS/Azure
+                                          ↓
+                              tools multicloud nativas
 ```
 
-## Patrones de DiseÃ±o
+El router conserva un catálogo con TTL, aplica namespaces (`aws__`, `azure__`) y usa circuit breakers y health checks por proveedor.
 
-### 1. Proxy Aggregator
+## Seguridad HTTP
 
-El servidor actÃºa como proxy que agrega mÃºltiples servidores MCP upstream. Cada tool se expone con un namespace Ãºnico: `provider__tool_name`.
+El transporte HTTP se crea mediante una capa separada que aplica, antes de ejecutar una tool:
 
-### 2. Circuit Breaker
+- request ID y headers de seguridad;
+- Bearer API key opcional para `/mcp`;
+- protección configurable de `/metrics` y `/health` público;
+- CORS explícito, nunca wildcard automático;
+- límite de cuerpo y rate limiting por IP;
+- política central `allow_all` o `read_only`;
+- auditoría sin tokens, credenciales ni argumentos sensibles.
 
-Cada provider tiene un circuit breaker que:
-- Cierra el circuito tras N fallos consecutivos
-- Rechaza llamadas durante el estado OPEN
-- Prueba recuperaciÃ³n con HALF_OPEN
+El transporte `stdio` no requiere autenticación HTTP y mantiene el flujo existente. Para producción HTTP se recomienda terminar TLS en un reverse proxy, ingress, API gateway o load balancer.
 
-### 3. Cache con TTL
+## Costos reales
 
-El catÃ¡logo de tools se cachea por 5 minutos.
-
-## Flujo de Datos
-
-### Listado de Tools
-
-1. Cliente envÃ­a `tools/list`
-2. Server verifica cache (TTL 5min)
-3. Si expirado: paraleliza `list_tools()` a todos los providers
-4. Aplica namespace: `aws__` + nombre_original
-5. Agrega tools multicloud nativas
-6. Retorna catÃ¡logo unificado
-
-### EjecuciÃ³n de Tool
-
-1. Cliente envÃ­a `tools/call` con `aws__s3__list_buckets`
-2. Router.parse() -> provider="aws", tool="s3__list_buckets"
-3. Verifica circuit breaker del provider
-4. Ejecuta `call_tool()` en AWSProvider
-5. AWSProvider traduce a nombre original y llama upstream
-6. Resultado fluye de vuelta al cliente
+`finops__get_actual_costs` consulta AWS Cost Explorer (`UnblendedCost`) y Azure Cost Management (`PreTaxCost`). El MCP no calcula ni hardcodea precios; devuelve los resultados separados por proveedor porque las métricas no se homologan automáticamente.

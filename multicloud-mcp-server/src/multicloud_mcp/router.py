@@ -70,13 +70,13 @@ class ProviderRouter:
             self._provider_by_tool.clear()
 
             tasks = []
-            for name, provider in self._providers.items():
+            for _name, provider in self._providers.items():
                 tasks.append(self._safe_list_tools(provider))
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            for provider_name, tools in zip(self._providers.keys(), results):
-                if isinstance(tools, Exception):
+            for provider_name, tools in zip(self._providers.keys(), results, strict=True):
+                if isinstance(tools, BaseException):
                     self._logger.warning(
                         "provider_tools_refresh_failed",
                         provider=provider_name,
@@ -138,10 +138,9 @@ class ProviderRouter:
                     "Native tools must be registered separately."
                 )
 
-            available = [t for t in self._tools_index.keys() if tool_name.split("__")[-1] in t]
+            available = [t for t in self._tools_index if tool_name.split("__")[-1] in t]
             raise ToolNotFoundError(
-                f"Tool '{tool_name}' not found. "
-                f"Did you mean one of: {available[:5]}?"
+                f"Tool '{tool_name}' not found. Did you mean one of: {available[:5]}?"
             )
 
         self._logger.info(
@@ -157,13 +156,13 @@ class ProviderRouter:
         results = {}
         tasks = []
 
-        for name, provider in self._providers.items():
+        for _name, provider in self._providers.items():
             tasks.append(self._safe_health_check(provider))
 
         health_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for name, health in zip(self._providers.keys(), health_results):
-            if isinstance(health, Exception):
+        for name, health in zip(self._providers.keys(), health_results, strict=True):
+            if isinstance(health, BaseException):
                 results[name] = ProviderHealth(
                     healthy=False,
                     error_message=str(health),
@@ -180,7 +179,7 @@ class ProviderRouter:
                 provider.health_check(),
                 timeout=provider.timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ProviderHealth(
                 healthy=False,
                 error_message="Health check timeout",

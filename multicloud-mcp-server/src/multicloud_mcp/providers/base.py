@@ -91,5 +91,5 @@ class ProviderAdapter(ABC):
         """Convert namespaced name back to original tool name."""
         prefix = f"{self.namespace}__"
         if namespaced_name.startswith(prefix):
-            return namespaced_name[len(prefix):]
+            return namespaced_name[len(prefix) :]
         return namespaced_name

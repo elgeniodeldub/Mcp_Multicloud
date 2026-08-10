@@ -42,8 +42,8 @@ class ResourceMapperTool:
 
     async def execute(self, arguments: dict[str, Any]) -> dict[str, Any]:
         """Execute resource mapping."""
-        source = arguments.get("source_provider")
-        target = arguments.get("target_provider")
+        source = str(arguments.get("source_provider", ""))
+        target = str(arguments.get("target_provider", ""))
         resource = arguments.get("resource_type", "")
 
         mappings = {

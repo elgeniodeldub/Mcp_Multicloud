@@ -80,12 +80,22 @@ class ListPriceComparisonTool:
         aws_price = round((vcpu * 0.048) + (memory * 0.012), 4)
         azure_price = round((vcpu * 0.052) + (memory * 0.014), 4)
         return {
-            "aws": {"instance_family": "m6i" if vcpu <= 8 else "m6g", "price_per_hour": aws_price,
-                    "price_per_month": round(aws_price * 730, 2)},
-            "azure": {"instance_family": "Dsv5" if vcpu <= 8 else "Ddsv5", "price_per_hour": azure_price,
-                      "price_per_month": round(azure_price * 730, 2)},
-            "difference": {"winner": "aws" if aws_price < azure_price else "azure",
-                           "percentage": round(abs(aws_price - azure_price) / max(aws_price, azure_price) * 100, 1)},
+            "aws": {
+                "instance_family": "m6i" if vcpu <= 8 else "m6g",
+                "price_per_hour": aws_price,
+                "price_per_month": round(aws_price * 730, 2),
+            },
+            "azure": {
+                "instance_family": "Dsv5" if vcpu <= 8 else "Ddsv5",
+                "price_per_hour": azure_price,
+                "price_per_month": round(azure_price * 730, 2),
+            },
+            "difference": {
+                "winner": "aws" if aws_price < azure_price else "azure",
+                "percentage": round(
+                    abs(aws_price - azure_price) / max(aws_price, azure_price) * 100, 1
+                ),
+            },
         }
 
     def _compare_storage(self, specs: dict[str, Any]) -> dict[str, Any]:
@@ -94,21 +104,31 @@ class ListPriceComparisonTool:
         pricing = {"ssd": {"aws": 0.10, "azure": 0.12}, "hdd": {"aws": 0.045, "azure": 0.048}}
         rates = pricing.get(storage_type, pricing["ssd"])
         return {
-            "aws": {"service": "EBS gp3" if storage_type == "ssd" else "EBS st1",
-                    "price_per_gb_month": rates["aws"], "total_monthly": round(rates["aws"] * storage_gb, 2)},
-            "azure": {"service": "Managed Disks Premium SSD" if storage_type == "ssd" else "Standard HDD",
-                      "price_per_gb_month": rates["azure"], "total_monthly": round(rates["azure"] * storage_gb, 2)},
+            "aws": {
+                "service": "EBS gp3" if storage_type == "ssd" else "EBS st1",
+                "price_per_gb_month": rates["aws"],
+                "total_monthly": round(rates["aws"] * storage_gb, 2),
+            },
+            "azure": {
+                "service": "Managed Disks Premium SSD" if storage_type == "ssd" else "Standard HDD",
+                "price_per_gb_month": rates["azure"],
+                "total_monthly": round(rates["azure"] * storage_gb, 2),
+            },
         }
 
     def _compare_database(self) -> dict[str, Any]:
-        return {"aws": {"service": "RDS PostgreSQL", "price_per_hour": 0.35},
-                "azure": {"service": "Azure Database for PostgreSQL", "price_per_hour": 0.38}}
+        return {
+            "aws": {"service": "RDS PostgreSQL", "price_per_hour": 0.35},
+            "azure": {"service": "Azure Database for PostgreSQL", "price_per_hour": 0.38},
+        }
 
     def _get_recommendation(self, comparison: dict[str, Any]) -> str:
         difference = comparison.get("difference")
         if difference:
-            return (f"{difference['winner'].upper()} has the lower public list-price estimate "
-                    f"by approximately {difference['percentage']}%.")
+            return (
+                f"{difference['winner'].upper()} has the lower public list-price estimate "
+                f"by approximately {difference['percentage']}%."
+            )
         return "Compare the public list-price estimates for the selected workload shape."
 
 

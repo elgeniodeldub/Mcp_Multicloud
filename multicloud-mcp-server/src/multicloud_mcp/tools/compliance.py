@@ -42,19 +42,37 @@ class ComplianceCheckerTool:
         """Execute compliance check."""
         framework = str(arguments.get("framework", "CIS")).upper()
         if framework not in {"CIS", "NIST"}:
-            return {"framework": framework, "status": "invalid", "checks": [],
-                    "errors": [{"error": "framework must be CIS or NIST"}]}
+            return {
+                "framework": framework,
+                "status": "invalid",
+                "checks": [],
+                "errors": [{"error": "framework must be CIS or NIST"}],
+            }
         posture = await SecurityPostureTool().execute(arguments, router)
         checks = [
-            {"control": "identity_and_access", "framework": framework,
-             "status": "review" if posture["findings"] else "not_evaluated",
-             "description": "Review IAM and role assignments for least privilege."},
-            {"control": "network_and_data_protection", "framework": framework,
-             "status": "review" if posture["findings"] else "not_evaluated",
-             "description": "Review public exposure and security group settings."},
+            {
+                "control": "identity_and_access",
+                "framework": framework,
+                "status": "review" if posture["findings"] else "not_evaluated",
+                "description": "Review IAM and role assignments for least privilege.",
+            },
+            {
+                "control": "network_and_data_protection",
+                "framework": framework,
+                "status": "review" if posture["findings"] else "not_evaluated",
+                "description": "Review public exposure and security group settings.",
+            },
         ]
-        logger.info("compliance_checked", framework=framework,
-                    checks=len(checks), errors=len(posture["errors"]))
-        return {"framework": framework, "status": "review_required" if posture["errors"]
-                else "evaluated", "checks": checks, "findings": posture["findings"],
-                "errors": posture["errors"]}
+        logger.info(
+            "compliance_checked",
+            framework=framework,
+            checks=len(checks),
+            errors=len(posture["errors"]),
+        )
+        return {
+            "framework": framework,
+            "status": "review_required" if posture["errors"] else "evaluated",
+            "checks": checks,
+            "findings": posture["findings"],
+            "errors": posture["errors"],
+        }

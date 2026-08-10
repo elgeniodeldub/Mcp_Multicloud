@@ -1,7 +1,5 @@
 """Tests for provider adapters."""
 
-import pytest
-
 from multicloud_mcp.providers.aws import AWSProvider
 from multicloud_mcp.providers.azure import AzureProvider
 
@@ -20,6 +18,7 @@ def test_azure_provider_namespacing():
 
 def test_provider_health_initial_state():
     from multicloud_mcp.providers.base import ProviderHealth
+
     health = ProviderHealth()
     assert health.healthy is False
     assert health.tools_count == 0

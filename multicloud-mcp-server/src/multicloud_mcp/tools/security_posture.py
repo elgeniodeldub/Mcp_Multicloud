@@ -11,9 +11,14 @@ from multicloud_mcp.providers.base import ToolInfo
 logger = structlog.get_logger()
 
 SECURITY_TOOL_SUFFIXES = (
-    "iam__list_roles", "iam__list_users", "iam__get_account_authorization_details",
-    "s3__list_buckets", "ec2__describe_security_groups", "security__list_findings",
-    "security__get_security_score", "authorization__list_role_assignments",
+    "iam__list_roles",
+    "iam__list_users",
+    "iam__get_account_authorization_details",
+    "s3__list_buckets",
+    "ec2__describe_security_groups",
+    "security__list_findings",
+    "security__get_security_score",
+    "authorization__list_role_assignments",
     "security__list_recommendations",
 )
 
@@ -58,13 +63,25 @@ class SecurityPostureTool:
                     continue
                 try:
                     result = await router.call_tool(tool_name, {})
-                    findings.append({"provider": provider_name, "tool": tool_name,
-                                     "status": "error" if result.get("isError") else "ok",
-                                     "data": result.get("content", result)})
+                    findings.append(
+                        {
+                            "provider": provider_name,
+                            "tool": tool_name,
+                            "status": "error" if result.get("isError") else "ok",
+                            "data": result.get("content", result),
+                        }
+                    )
                 except Exception as exc:
-                    logger.warning("security_check_failed", provider=provider_name,
-                                   tool=tool_name, error=str(exc))
+                    logger.warning(
+                        "security_check_failed",
+                        provider=provider_name,
+                        tool=tool_name,
+                        error=str(exc),
+                    )
                     errors.append({"provider": provider_name, "tool": tool_name, "error": str(exc)})
-        summary = {"providers_checked": len(selected), "checks_run": len(findings),
-                   "errors": len(errors)}
+        summary = {
+            "providers_checked": len(selected),
+            "checks_run": len(findings),
+            "errors": len(errors),
+        }
         return {"findings": findings, "errors": errors, "summary": summary}

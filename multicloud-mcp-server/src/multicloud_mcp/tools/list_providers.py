@@ -36,12 +36,14 @@ class ListProvidersTool:
         for name, provider in router.providers.items():
             status = health.get(name, provider.health)
             breaker = health_monitor._breakers.get(name)
-            providers.append({
-                "name": name,
-                "healthy": status.healthy,
-                "tools_count": len(provider.tools) or status.tools_count,
-                "latency_ms": status.latency_ms,
-                "circuit_state": breaker.state.value if breaker else "unknown",
-            })
+            providers.append(
+                {
+                    "name": name,
+                    "healthy": status.healthy,
+                    "tools_count": len(provider.tools) or status.tools_count,
+                    "latency_ms": status.latency_ms,
+                    "circuit_state": breaker.state.value if breaker else "unknown",
+                }
+            )
         logger.info("providers_listed", count=len(providers))
         return {"providers": providers, "count": len(providers)}

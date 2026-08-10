@@ -33,8 +33,8 @@ class AzureProvider(ProviderAdapter):
             timeout=timeout,
         )
         self._session: ClientSession | None = None
-        self._stdio_ctx = None
-        self._client_ctx = None
+        self._stdio_ctx: Any = None
+        self._client_ctx: Any = None
 
     async def connect(self) -> None:
         """Connect to Azure MCP Server via stdio."""
@@ -72,6 +72,7 @@ class AzureProvider(ProviderAdapter):
         """List tools from Azure MCP Server with namespace prefix."""
         if not self._session:
             await self.connect()
+        assert self._session is not None
 
         try:
             tools_response = await self._session.list_tools()
@@ -104,6 +105,7 @@ class AzureProvider(ProviderAdapter):
         """Call a tool on Azure MCP Server."""
         if not self._session:
             await self.connect()
+        assert self._session is not None
 
         original_name = self._original_name(tool_name)
 
@@ -147,6 +149,7 @@ class AzureProvider(ProviderAdapter):
         try:
             if not self._session:
                 await self.connect()
+            assert self._session is not None
 
             await self._session.list_tools()
 

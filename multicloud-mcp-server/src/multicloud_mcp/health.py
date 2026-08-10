@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 import structlog
 
@@ -48,9 +50,7 @@ class CircuitBreaker:
         """Record a failed call."""
         self.failures += 1
         self.last_failure_time = time.time()
-        if self.state == CircuitState.HALF_OPEN:
-            self._open()
-        elif self.failures >= self.failure_threshold:
+        if self.state == CircuitState.HALF_OPEN or self.failures >= self.failure_threshold:
             self._open()
 
     def can_execute(self) -> bool:
@@ -88,7 +88,7 @@ class HealthMonitor:
         self.check_interval = check_interval
         self._breakers: dict[str, CircuitBreaker] = {}
         self._providers: dict[str, ProviderAdapter] = {}
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[Any] | None = None
         self._stop_event = asyncio.Event()
         self._logger = logger.bind(component="health_monitor")
 
@@ -126,10 +126,8 @@ class HealthMonitor:
         self._stop_event.set()
         if self._task:
             self._task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._logger.info("health_monitor_stopped")
 
     async def _monitor_loop(self) -> None:
@@ -140,7 +138,7 @@ class HealthMonitor:
                     self._stop_event.wait(),
                     timeout=self.check_interval,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 await self._check_all()
 
     async def _check_all(self) -> None:
@@ -155,12 +153,10 @@ class HealthMonitor:
         if not tasks:
             return
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        for name, result in zip(names, results):
-            if isinstance(result, Exception):
+        for name, result in zip(names, results, strict=True):
+            if isinstance(result, BaseException):
                 self._breakers[name].record_failure()
-                self._logger.warning(
-                    "health_check_failed", provider=name, error=str(result)
-                )
+                self._logger.warning("health_check_failed", provider=name, error=str(result))
             else:
                 health: ProviderHealth = result
                 if health.healthy:

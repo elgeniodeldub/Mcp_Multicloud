@@ -1,50 +1,24 @@
-# ConfiguraciÃ³n del Multicloud MCP Server
+# Configuración
 
-## MÃ©todos de ConfiguraciÃ³n
+La configuración se carga, por orden de prioridad, desde variables de entorno, un archivo YAML (`MULTICLOUD_CONFIG_PATH`, `./config.yaml` o `./config.yml`) y valores predeterminados.
 
-1. **Variables de entorno** (mayor prioridad)
-2. **Archivo YAML** (especificado o por defecto)
-3. **Valores por defecto** (menor prioridad)
+Las variables anidadas usan `__`, por ejemplo `MULTICLOUD_SERVER__TRANSPORT=http` y `MULTICLOUD_SERVER__HTTP__PORT=8080`.
 
-## Archivo de ConfiguraciÃ³n
+## Seguridad HTTP
 
-### Ubicaciones por defecto
+El host HTTP predeterminado es `127.0.0.1`. Para un despliegue seguro usa `examples/config.secure.yaml` y define el secreto fuera de YAML:
 
-- `MULTICLOUD_CONFIG_PATH`
-- `./config.yaml`
-- `./config.yml`
-- `/etc/multicloud-mcp/config.yaml`
-
-### Variables de Entorno
-
-Todas usan el prefijo `MULTICLOUD_`:
-
-| Variable | DescripciÃ³n | Ejemplo |
-|----------|-------------|---------|
-| `MULTICLOUD_CONFIG_PATH` | Ruta al archivo YAML | `/etc/mcp/config.yaml` |
-| `MULTICLOUD_LOG_LEVEL` | Nivel de logging | `DEBUG` |
-| `MULTICLOUD_SERVER__TRANSPORT` | Transporte | `http` |
-| `MULTICLOUD_SERVER__HTTP__PORT` | Puerto HTTP | `8080` |
-
-> **Nota**: El separador `__` navega objetos anidados.
-
-## ConfiguraciÃ³n por Cliente
-
-### Claude Desktop
-
-`~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "multicloud": {
-      "command": "uvx",
-      "args": ["multicloud-mcp-server@latest"],
-      "env": {
-        "AWS_REGION": "us-east-1",
-        "AZURE_SUBSCRIPTION_ID": "your-sub-id"
-      }
-    }
-  }
-}
+```powershell
+$env:MULTICLOUD_API_KEY = "super-secret-token"
+multicloud-mcp-server --config examples/config.secure.yaml
 ```
+
+Las opciones principales son:
+
+- `security.authentication`: Bearer API key y protección de `/metrics`.
+- `security.cors`: CORS explícito; está deshabilitado por defecto.
+- `security.max_request_size_bytes`: límite de cuerpo de `/mcp`, 1 MiB por defecto.
+- `security.rate_limit`: límite por IP en memoria, 60 solicitudes por minuto por defecto.
+- `security.tool_policy`: `allow_all` o `read_only`.
+
+`stdio` continúa funcionando sin autenticación HTTP. Consulta [Seguridad HTTP](security.md) para TLS, auditoría, métricas y reverse proxies.

@@ -7,9 +7,12 @@ import asyncio
 import json
 import signal
 import sys
+import time
+import uuid
 from typing import Any
 
 import structlog
+import uvicorn
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
@@ -18,13 +21,17 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Route
-import uvicorn
 
 from multicloud_mcp.config import Settings
 from multicloud_mcp.health import HealthMonitor
 from multicloud_mcp.providers.aws import AWSProvider
 from multicloud_mcp.providers.azure import AzureProvider
+from multicloud_mcp.providers.base import ProviderAdapter, ToolInfo
 from multicloud_mcp.router import ProviderRouter, ToolNotFoundError
+from multicloud_mcp.security import ToolBlockedError, ToolSecurityPolicy
+from multicloud_mcp.security.auth import BearerAuthenticator
+from multicloud_mcp.security.middleware import SecurityMiddleware
+from multicloud_mcp.security.rate_limit import InMemoryRateLimiter
 
 logger = structlog.get_logger()
 
@@ -37,12 +44,21 @@ class MulticloudMCPServer:
         self.router = ProviderRouter()
         self.health_monitor = HealthMonitor(check_interval=30.0)
         self.server = Server(settings.server.name)
+        self.security_policy = ToolSecurityPolicy(settings.security.tool_policy.mode)
+        self.http_metrics: dict[str, int] = {
+            "requests": 0,
+            "auth_failures": 0,
+            "rate_limit_rejections": 0,
+            "request_size_rejections": 0,
+            "tool_calls": 0,
+            "tool_policy_rejections": 0,
+        }
         self._setup_handlers()
 
     def _setup_handlers(self) -> None:
         """Register MCP protocol handlers."""
 
-        @self.server.list_tools()
+        @self.server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
         async def list_tools() -> list[Tool]:
             """List all available tools from all providers."""
             tools = await self.router.refresh_tools()
@@ -59,10 +75,11 @@ class MulticloudMCPServer:
                 for tool in tools
             ]
 
-        @self.server.call_tool()
-        async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+        @self.server.call_tool()  # type: ignore[untyped-decorator]
+        async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             """Route tool call to appropriate provider."""
             try:
+                self.security_policy.authorize_tool(name)
                 if name.startswith(("multicloud__", "finops__")):
                     result = await self._call_multicloud_tool(name, arguments)
                     return [TextContent(type="text", text=json.dumps(result, indent=2))]
@@ -89,22 +106,38 @@ class MulticloudMCPServer:
 
             except ToolNotFoundError as e:
                 return [TextContent(type="text", text=f"Tool not found: {e}")]
+            except ToolBlockedError as e:
+                return [
+                    TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {
+                                "error": "tool_blocked_by_policy",
+                                "tool": e.tool_name,
+                                "policy": e.policy,
+                            }
+                        ),
+                    )
+                ]
             except Exception as e:
-                logger.error("tool_call_failed", tool=name, error=str(e))
-                return [TextContent(type="text", text=f"Internal error: {str(e)}")]
+                logger.error("tool_call_failed", tool=name, transport="stdio", error=str(e))
+                return [TextContent(type="text", text="Internal server error")]
 
-    def _get_multicloud_tools(self):
+    def _get_multicloud_tools(self) -> list[ToolInfo]:
         """Return multicloud native tool definitions."""
-        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
-        from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
-        from multicloud_mcp.tools.list_providers import ListProvidersTool
-        from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
-        from multicloud_mcp.tools.security_posture import SecurityPostureTool
+        from multicloud_mcp.tools.actual_costs import ActualCostsTool
         from multicloud_mcp.tools.compliance import ComplianceCheckerTool
+        from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
+        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
+        from multicloud_mcp.tools.list_providers import ListProvidersTool
+        from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
+        from multicloud_mcp.tools.security_posture import SecurityPostureTool
 
         tools = []
         enabled = set(self.settings.multicloud.tools)
 
+        if "actual_costs" in enabled:
+            tools.append(ActualCostsTool().get_tool_info())
         if "list_price_comparison" in enabled:
             tools.append(ListPriceComparisonTool().get_tool_info())
         if "resource_mapper" in enabled:
@@ -120,16 +153,19 @@ class MulticloudMCPServer:
 
         return tools
 
-    async def _call_multicloud_tool(self, name: str, arguments: dict) -> dict[str, Any]:
+    async def _call_multicloud_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Execute multicloud native tools."""
-        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
-        from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
-        from multicloud_mcp.tools.list_providers import ListProvidersTool
-        from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
-        from multicloud_mcp.tools.security_posture import SecurityPostureTool
+        from multicloud_mcp.tools.actual_costs import ActualCostsTool
         from multicloud_mcp.tools.compliance import ComplianceCheckerTool
+        from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
+        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
+        from multicloud_mcp.tools.list_providers import ListProvidersTool
+        from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
+        from multicloud_mcp.tools.security_posture import SecurityPostureTool
 
-        if name == "finops__compare_list_prices":
+        if name == "finops__get_actual_costs":
+            return await ActualCostsTool().execute(arguments)
+        elif name == "finops__compare_list_prices":
             return await ListPriceComparisonTool().execute(arguments)
         elif name == "multicloud__map_resource":
             return await ResourceMapperTool().execute(arguments)
@@ -153,7 +189,7 @@ class MulticloudMCPServer:
 
             try:
                 if name == "aws":
-                    provider = AWSProvider(
+                    provider: ProviderAdapter = AWSProvider(
                         command=config.command,
                         args=config.args,
                         env=config.env,
@@ -204,81 +240,130 @@ class MulticloudMCPServer:
         finally:
             await self.shutdown()
 
-    async def run_http(self) -> None:
-        """Run server with HTTP transport (MCP 2026-07-28 stateless)."""
-        await self.initialize()
+    def create_http_app(self) -> Starlette:
+        """Create the secured HTTP application without starting a listener."""
 
         async def mcp_endpoint(request: Request) -> JSONResponse:
             """Handle MCP requests over HTTP."""
+            request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
             try:
                 body = await request.json()
             except Exception:
-                return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+                return self._jsonrpc_error(None, -32600, "invalid_request", 400, request_id)
 
-            method = body.get("method")
-            params = body.get("params", {})
+            try:
+                method = body.get("method")
+                params = body.get("params", {})
 
-            if method == "tools/list":
-                tools = await self.router.refresh_tools()
-                if self.settings.multicloud.enabled:
-                    tools.extend(self._get_multicloud_tools())
-                return JSONResponse({
-                    "jsonrpc": "2.0",
-                    "id": body.get("id"),
-                    "result": {
-                        "tools": [
-                            {
-                                "name": t.name,
-                                "description": t.description,
-                                "inputSchema": t.input_schema,
-                            }
-                            for t in tools
-                        ]
-                    }
-                })
-
-            elif method == "tools/call":
-                tool_name = params.get("name")
-                arguments = params.get("arguments", {})
-                if not isinstance(tool_name, str):
+                if method == "tools/list":
+                    tools = await self.router.refresh_tools()
+                    if self.settings.multicloud.enabled:
+                        tools.extend(self._get_multicloud_tools())
                     return JSONResponse(
                         {
                             "jsonrpc": "2.0",
                             "id": body.get("id"),
-                            "error": {"code": -32602, "message": "Tool name is required"},
-                        },
-                        status_code=400,
+                            "result": {
+                                "tools": [
+                                    {
+                                        "name": t.name,
+                                        "description": t.description,
+                                        "inputSchema": t.input_schema,
+                                    }
+                                    for t in tools
+                                ]
+                            },
+                        }
                     )
 
-                if tool_name.startswith(("multicloud__", "finops__")):
-                    result = await self._call_multicloud_tool(tool_name, arguments)
-                    result = {
-                        "content": [{"type": "text", "text": json.dumps(result, indent=2)}]
-                    }
-                else:
-                    result = await self.router.call_tool(tool_name, arguments)
-                return JSONResponse({
-                    "jsonrpc": "2.0",
-                    "id": body.get("id"),
-                    "result": result
-                })
+                if method == "tools/call":
+                    tool_name = params.get("name")
+                    arguments = params.get("arguments", {})
+                    if not isinstance(tool_name, str):
+                        return self._jsonrpc_error(
+                            body.get("id"), -32602, "invalid_request", 400, request_id
+                        )
 
-            return JSONResponse({"error": "Method not found"}, status_code=404)
+                    started = time.perf_counter()
+                    success = False
+                    provider = tool_name.split("__", 1)[0]
+                    try:
+                        self.security_policy.authorize_tool(tool_name)
+                        if tool_name.startswith(("multicloud__", "finops__")):
+                            result = await self._call_multicloud_tool(tool_name, arguments)
+                            result = {
+                                "content": [{"type": "text", "text": json.dumps(result, indent=2)}]
+                            }
+                        else:
+                            result = await self.router.call_tool(tool_name, arguments)
+                        success = not result.get("isError", False)
+                        return JSONResponse(
+                            {"jsonrpc": "2.0", "id": body.get("id"), "result": result}
+                        )
+                    except ToolBlockedError as error:
+                        self.http_metrics["tool_policy_rejections"] += 1
+                        return self._jsonrpc_error(
+                            body.get("id"),
+                            -32003,
+                            "tool_blocked_by_policy",
+                            403,
+                            request_id,
+                            {"tool": error.tool_name, "policy": error.policy},
+                        )
+                    except ToolNotFoundError:
+                        return self._jsonrpc_error(
+                            body.get("id"), -32601, "tool_not_found", 404, request_id
+                        )
+                    finally:
+                        self.http_metrics["tool_calls"] += 1
+                        logger.info(
+                            "mcp_tool_call",
+                            event="mcp_tool_call",
+                            request_id=request_id,
+                            tool=tool_name,
+                            provider=provider,
+                            transport="http",
+                            client_ip=getattr(request.state, "client_ip", "unknown"),
+                            success=success,
+                            duration_ms=round((time.perf_counter() - started) * 1000, 2),
+                            policy=self.security_policy.mode,
+                        )
+
+                return self._jsonrpc_error(
+                    body.get("id"), -32601, "invalid_request", 404, request_id
+                )
+            except Exception as error:
+                logger.error(
+                    "http_request_failed",
+                    request_id=request_id,
+                    error=str(error),
+                    transport="http",
+                    event="http_request_failed",
+                )
+                return self._jsonrpc_error(
+                    body.get("id") if isinstance(body, dict) else None,
+                    -32603,
+                    "Internal server error",
+                    500,
+                    request_id,
+                )
 
         async def health_endpoint(request: Request) -> JSONResponse:
             """Health check endpoint."""
             health = await self.router.health_check_all()
-            return JSONResponse({
-                "status": "healthy" if all(h.healthy for h in health.values()) else "degraded",
-                "providers": {
-                    name: {
-                        "healthy": h.healthy,
-                        "tools_count": h.tools_count,
-                        "latency_ms": h.latency_ms,
-                    }
-                    for name, h in health.items()
+            return JSONResponse(
+                {
+                    "status": "healthy" if all(h.healthy for h in health.values()) else "degraded",
+                    "providers": {
+                        name: {
+                            "healthy": h.healthy,
+                            "tools_count": h.tools_count,
+                            "latency_ms": h.latency_ms,
+                        }
+                        for name, h in health.items()
+                    },
                 }
-            })
+            )
 
         async def metrics_endpoint(request: Request) -> PlainTextResponse:
             """Prometheus-style metrics endpoint."""
@@ -290,6 +375,16 @@ class MulticloudMCPServer:
                 "# HELP multicloud_tools_total Number of available tools",
                 "# TYPE multicloud_tools_total gauge",
                 f"multicloud_tools_total {len(self.router.all_tools)}",
+                "# TYPE multicloud_http_requests_total counter",
+                f"multicloud_http_requests_total {self.http_metrics['requests']}",
+                "# TYPE multicloud_http_auth_failures_total counter",
+                f"multicloud_http_auth_failures_total {self.http_metrics['auth_failures']}",
+                "# TYPE multicloud_http_rate_limit_rejections_total counter",
+                f"multicloud_http_rate_limit_rejections_total {self.http_metrics['rate_limit_rejections']}",
+                "# TYPE multicloud_tool_calls_total counter",
+                f"multicloud_tool_calls_total {self.http_metrics['tool_calls']}",
+                "# TYPE multicloud_tool_policy_rejections_total counter",
+                f"multicloud_tool_policy_rejections_total {self.http_metrics['tool_policy_rejections']}",
             ]
             return PlainTextResponse("\n".join(lines))
 
@@ -299,13 +394,58 @@ class MulticloudMCPServer:
             Route("/metrics", metrics_endpoint, methods=["GET"]),
         ]
 
+        security = self.settings.security
+        if security.authentication.enabled and "*" in security.cors.allowed_origins:
+            raise ValueError(
+                "security.cors.allowed_origins cannot contain '*' when authentication is enabled"
+            )
+        authenticator = BearerAuthenticator(
+            security.authentication.enabled, security.authentication.api_key_env
+        )
+        limiter = (
+            InMemoryRateLimiter(security.rate_limit.requests_per_minute)
+            if security.rate_limit.enabled
+            else None
+        )
         app = Starlette(routes=routes)
         app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_methods=["*"],
-            allow_headers=["*"],
+            SecurityMiddleware,
+            authenticator=authenticator,
+            protect_metrics=security.authentication.protect_metrics,
+            max_request_size=security.max_request_size_bytes,
+            rate_limiter=limiter,
+            metrics=self.http_metrics,
         )
+        if security.cors.enabled:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=security.cors.allowed_origins,
+                allow_methods=security.cors.allowed_methods,
+                allow_headers=security.cors.allowed_headers,
+            )
+        return app
+
+    @staticmethod
+    def _jsonrpc_error(
+        request_id: Any,
+        code: int,
+        message: str,
+        status: int,
+        correlation_id: str,
+        data: dict[str, Any] | None = None,
+    ) -> JSONResponse:
+        error: dict[str, Any] = {"code": code, "message": message}
+        if data:
+            error["data"] = data
+        return JSONResponse(
+            {"jsonrpc": "2.0", "id": request_id, "error": error, "request_id": correlation_id},
+            status_code=status,
+        )
+
+    async def run_http(self) -> None:
+        """Run server with secured HTTP transport."""
+        await self.initialize()
+        app = self.create_http_app()
 
         config = self.settings.server.http
         logger.info("http_server_starting", host=config.host, port=config.port)
@@ -327,12 +467,8 @@ def main() -> None:
     parser.add_argument(
         "--port", type=int, default=None, help="HTTP port (only with --transport http)"
     )
-    parser.add_argument(
-        "--config", type=str, default=None, help="Path to config YAML file"
-    )
-    parser.add_argument(
-        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default=None
-    )
+    parser.add_argument("--config", type=str, default=None, help="Path to config YAML file")
+    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default=None)
     args = parser.parse_args()
 
     structlog.configure(
@@ -353,10 +489,7 @@ def main() -> None:
         cache_logger_on_first_use=True,
     )
 
-    if args.config:
-        settings = Settings.from_yaml(args.config)
-    else:
-        settings = Settings.load()
+    settings = Settings.from_yaml(args.config) if args.config else Settings.load()
 
     if args.transport:
         settings.server.transport = args.transport

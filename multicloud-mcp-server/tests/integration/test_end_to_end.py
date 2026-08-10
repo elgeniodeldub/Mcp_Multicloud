@@ -1,29 +1,41 @@
 """End-to-end integration tests."""
 
 import pytest
-from unittest.mock import AsyncMock
 
-from multicloud_mcp.server import MulticloudMCPServer
 from multicloud_mcp.config import Settings
 from multicloud_mcp.providers.base import ProviderHealth, ToolInfo
+from multicloud_mcp.server import MulticloudMCPServer
 
 
 class MockProvider:
     name = "aws"
     namespace = "aws"
     timeout = 10
-    tools = [ToolInfo(name="aws__eks__list_clusters", description="clusters", input_schema={},
-                      original_name="eks__list_clusters", provider="aws", namespace="aws"),
-             ToolInfo(name="aws__iam__list_roles", description="roles", input_schema={},
-                      original_name="iam__list_roles", provider="aws", namespace="aws")]
+    tools = [
+        ToolInfo(
+            name="aws__eks__list_clusters",
+            description="clusters",
+            input_schema={},
+            original_name="eks__list_clusters",
+            provider="aws",
+            namespace="aws",
+        ),
+        ToolInfo(
+            name="aws__iam__list_roles",
+            description="roles",
+            input_schema={},
+            original_name="iam__list_roles",
+            provider="aws",
+            namespace="aws",
+        ),
+    ]
     health = ProviderHealth(healthy=True, tools_count=2, latency_ms=1.0)
 
     async def list_tools(self):
         return self.tools
 
     async def call_tool(self, name, arguments):
-        return {"content": [{"type": "text", "text": "[{\"name\": \"cluster-1\"}]"}],
-                "isError": False}
+        return {"content": [{"type": "text", "text": '[{"name": "cluster-1"}]'}], "isError": False}
 
     async def health_check(self):
         return self.health
@@ -55,7 +67,7 @@ async def test_list_tools_with_no_providers():
     server = MulticloudMCPServer(settings)
 
     await server.initialize()
-    tools = server._get_multicloud_tools()
+    _ = server._get_multicloud_tools()
     # Should have at least multicloud tools
     await server.shutdown()
 

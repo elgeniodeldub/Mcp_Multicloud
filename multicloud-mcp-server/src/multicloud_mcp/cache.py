@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 import structlog
 
@@ -31,11 +31,11 @@ class ToolsCache:
     """Cache for provider tools catalog."""
 
     def __init__(self, default_ttl: float = 300.0) -> None:
-        self._cache: dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry[Any]] = {}
         self._default_ttl = default_ttl
         self._logger = logger.bind(component="tools_cache")
 
-    def get(self, key: str):
+    def get(self, key: str) -> Any | None:
         """Get cached tools if not expired."""
         entry = self._cache.get(key)
         if entry is None:
@@ -47,7 +47,7 @@ class ToolsCache:
         self._logger.debug("cache_hit", key=key)
         return entry.value
 
-    def set(self, key: str, value, ttl: float | None = None) -> None:
+    def set(self, key: str, value: Any, ttl: float | None = None) -> None:
         """Store tools in cache."""
         self._cache[key] = CacheEntry(
             value=value,
@@ -64,7 +64,7 @@ class ToolsCache:
             self._cache.pop(key, None)
             self._logger.info("cache_invalidated", key=key)
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, int]:
         """Get cache statistics."""
         total = len(self._cache)
         expired = sum(1 for e in self._cache.values() if e.is_expired)

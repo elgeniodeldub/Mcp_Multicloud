@@ -21,7 +21,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
-    CMD echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' || exit 1
+    CMD-SHELL if [ "$MULTICLOUD_TRANSPORT" = "http" ]; then curl -fsS http://127.0.0.1:8080/health || exit 1; else exit 0; fi
 
 ENTRYPOINT ["multicloud-mcp-server"]
 CMD ["--transport", "stdio"]
