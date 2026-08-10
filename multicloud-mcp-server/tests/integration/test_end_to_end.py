@@ -55,7 +55,7 @@ async def test_list_tools_with_no_providers():
     server = MulticloudMCPServer(settings)
 
     await server.initialize()
-    tools = await server.server._request_handlers["tools/list"]()
+    tools = server._get_multicloud_tools()
     # Should have at least multicloud tools
     await server.shutdown()
 
