@@ -55,7 +55,7 @@ class MulticloudToolsConfig(BaseModel):
 
     enabled: bool = True
     tools: list[str] = Field(default_factory=lambda: [
-        "cost_comparison",
+        "list_price_comparison",
         "resource_mapper",
         "list_providers",
         "discover_resources",

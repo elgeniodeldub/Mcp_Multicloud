@@ -63,7 +63,7 @@ class MulticloudMCPServer:
         async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             """Route tool call to appropriate provider."""
             try:
-                if name.startswith("multicloud__"):
+                if name.startswith(("multicloud__", "finops__")):
                     result = await self._call_multicloud_tool(name, arguments)
                     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -95,7 +95,7 @@ class MulticloudMCPServer:
 
     def _get_multicloud_tools(self):
         """Return multicloud native tool definitions."""
-        from multicloud_mcp.tools.cost_comparison import CostComparisonTool
+        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
         from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
         from multicloud_mcp.tools.list_providers import ListProvidersTool
         from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
@@ -105,8 +105,8 @@ class MulticloudMCPServer:
         tools = []
         enabled = set(self.settings.multicloud.tools)
 
-        if "cost_comparison" in enabled:
-            tools.append(CostComparisonTool().get_tool_info())
+        if "list_price_comparison" in enabled:
+            tools.append(ListPriceComparisonTool().get_tool_info())
         if "resource_mapper" in enabled:
             tools.append(ResourceMapperTool().get_tool_info())
         if "list_providers" in enabled:
@@ -122,15 +122,15 @@ class MulticloudMCPServer:
 
     async def _call_multicloud_tool(self, name: str, arguments: dict) -> dict[str, Any]:
         """Execute multicloud native tools."""
-        from multicloud_mcp.tools.cost_comparison import CostComparisonTool
+        from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
         from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
         from multicloud_mcp.tools.list_providers import ListProvidersTool
         from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
         from multicloud_mcp.tools.security_posture import SecurityPostureTool
         from multicloud_mcp.tools.compliance import ComplianceCheckerTool
 
-        if name == "multicloud__compare_cost":
-            return await CostComparisonTool().execute(arguments)
+        if name == "finops__compare_list_prices":
+            return await ListPriceComparisonTool().execute(arguments)
         elif name == "multicloud__map_resource":
             return await ResourceMapperTool().execute(arguments)
         elif name == "multicloud__list_providers":
@@ -250,7 +250,7 @@ class MulticloudMCPServer:
                         status_code=400,
                     )
 
-                if tool_name.startswith("multicloud__"):
+                if tool_name.startswith(("multicloud__", "finops__")):
                     result = await self._call_multicloud_tool(tool_name, arguments)
                     result = {
                         "content": [{"type": "text", "text": json.dumps(result, indent=2)}]

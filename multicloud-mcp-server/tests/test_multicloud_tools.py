@@ -2,7 +2,7 @@
 
 import pytest
 
-from multicloud_mcp.tools.cost_comparison import CostComparisonTool
+from multicloud_mcp.tools.list_price_comparison import ListPriceComparisonTool
 from multicloud_mcp.tools.resource_mapper import ResourceMapperTool
 from multicloud_mcp.tools.list_providers import ListProvidersTool
 from multicloud_mcp.tools.discover_resources import DiscoverResourcesTool
@@ -13,7 +13,7 @@ from multicloud_mcp.providers.base import ProviderHealth, ToolInfo
 
 @pytest.mark.asyncio
 async def test_cost_comparison_compute():
-    tool = CostComparisonTool()
+    tool = ListPriceComparisonTool()
     result = await tool.execute({
         "service_type": "compute",
         "region_aws": "us-east-1",
@@ -23,12 +23,14 @@ async def test_cost_comparison_compute():
     assert "comparison" in result
     assert "aws" in result["comparison"]
     assert "azure" in result["comparison"]
-    assert "savings" in result["comparison"]
+    assert result["pricing_model"] == "list_price"
+    assert "difference" in result["comparison"]
+    assert result["estimate_type"] == "public_on_demand"
 
 
 @pytest.mark.asyncio
 async def test_cost_comparison_storage():
-    tool = CostComparisonTool()
+    tool = ListPriceComparisonTool()
     result = await tool.execute({
         "service_type": "storage",
         "region_aws": "us-east-1",

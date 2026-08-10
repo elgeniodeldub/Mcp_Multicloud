@@ -67,7 +67,7 @@ Todas las herramientas del servidor MCP oficial de Azure con prefijo `azure__`.
 
 | Tool | DescripciÃ³n |
 |------|-------------|
-| `multicloud__compare_cost` | Compara costos AWS vs Azure |
+| `finops__compare_list_prices` | Compara precios públicos on-demand de AWS vs Azure |
 | `multicloud__map_resource` | Mapea recursos entre nubes |
 | `multicloud__list_providers` | Lista providers y su estado |
 | `multicloud__discover_resources` | Descubre recursos en todas las nubes |

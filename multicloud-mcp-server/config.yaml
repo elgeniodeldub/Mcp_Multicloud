@@ -33,7 +33,7 @@ providers:
 multicloud:
   enabled: true
   tools:
-    - cost_comparison
+    - list_price_comparison
     - resource_mapper
     - list_providers
     - discover_resources
