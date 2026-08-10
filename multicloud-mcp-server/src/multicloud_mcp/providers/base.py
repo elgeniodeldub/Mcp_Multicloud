@@ -46,6 +46,10 @@ class ProviderAdapter(ABC):
         args: list[str],
         env: dict[str, str],
         timeout: int = 60,
+        max_concurrency: int = 10,
+        retry_attempts: int = 2,
+        circuit_failure_threshold: int = 5,
+        circuit_recovery_timeout: float = 30.0,
     ) -> None:
         self.name = name
         self.namespace = namespace
@@ -53,6 +57,10 @@ class ProviderAdapter(ABC):
         self.args = args
         self.env = env
         self.timeout = timeout
+        self.max_concurrency = max_concurrency
+        self.retry_attempts = retry_attempts
+        self.circuit_failure_threshold = circuit_failure_threshold
+        self.circuit_recovery_timeout = circuit_recovery_timeout
         self.health = ProviderHealth()
         self._tools: list[ToolInfo] = []
         self._lock = asyncio.Lock()
@@ -93,3 +101,18 @@ class ProviderAdapter(ABC):
         if namespaced_name.startswith(prefix):
             return namespaced_name[len(prefix) :]
         return namespaced_name
+
+    @property
+    def capabilities(self) -> set[Any]:
+        """Semantic capabilities declared by this provider adapter."""
+        return set(getattr(self, "_capability_tools", {}))
+
+    def supports(self, capability: Any) -> bool:
+        """Return whether this provider exposes a semantic capability."""
+        return capability in self.capabilities
+
+    async def execute_capability(
+        self, capability: Any, arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Execute a declared capability through the provider adapter."""
+        raise NotImplementedError("Provider does not implement semantic capabilities")

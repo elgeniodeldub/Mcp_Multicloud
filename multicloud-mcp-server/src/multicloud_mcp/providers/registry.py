@@ -71,6 +71,10 @@ def build_provider_registry() -> ProviderRegistry:
             args=config.args,
             env=config.env,
             timeout=config.timeout,
+            max_concurrency=config.max_concurrency,
+            retry_attempts=config.retry_attempts,
+            circuit_failure_threshold=config.circuit_failure_threshold,
+            circuit_recovery_timeout=config.circuit_recovery_timeout,
         ),
     )
     registry.register(
@@ -80,6 +84,10 @@ def build_provider_registry() -> ProviderRegistry:
             args=config.args,
             env=config.env,
             timeout=config.timeout,
+            max_concurrency=config.max_concurrency,
+            retry_attempts=config.retry_attempts,
+            circuit_failure_threshold=config.circuit_failure_threshold,
+            circuit_recovery_timeout=config.circuit_recovery_timeout,
         ),
     )
     return registry

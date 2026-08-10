@@ -116,6 +116,20 @@ class HealthMonitor:
             else:
                 breaker.record_failure()
 
+    @staticmethod
+    def overall_status(health: dict[str, ProviderHealth]) -> str:
+        """Return service-level status without turning one provider outage into liveness failure."""
+        if not health or all(item.healthy for item in health.values()):
+            return "healthy"
+        if any(item.healthy for item in health.values()):
+            return "degraded"
+        return "unavailable"
+
+    @staticmethod
+    def liveness() -> bool:
+        """Process liveness is independent of provider availability."""
+        return True
+
     async def start(self) -> None:
         """Start periodic health checks."""
         self._task = asyncio.create_task(self._monitor_loop())

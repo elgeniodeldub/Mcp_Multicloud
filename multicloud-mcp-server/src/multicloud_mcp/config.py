@@ -41,6 +41,10 @@ class ProviderConfig(BaseModel):
     namespace: str
     health_check_interval: int = Field(default=30, ge=5)
     timeout: int = Field(default=60, ge=1)
+    max_concurrency: int = Field(default=10, ge=1)
+    retry_attempts: int = Field(default=2, ge=0, le=5)
+    circuit_failure_threshold: int = Field(default=5, ge=1)
+    circuit_recovery_timeout: float = Field(default=30.0, ge=1)
     description: str = ""
 
     @field_validator("namespace")

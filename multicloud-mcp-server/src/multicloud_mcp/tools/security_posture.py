@@ -7,19 +7,15 @@ from typing import Any
 import structlog
 
 from multicloud_mcp.providers.base import ToolInfo
+from multicloud_mcp.providers.capabilities import Capability
 
 logger = structlog.get_logger()
 
-SECURITY_TOOL_SUFFIXES = (
-    "iam__list_roles",
-    "iam__list_users",
-    "iam__get_account_authorization_details",
-    "s3__list_buckets",
-    "ec2__describe_security_groups",
-    "security__list_findings",
-    "security__get_security_score",
-    "authorization__list_role_assignments",
-    "security__list_recommendations",
+LEGACY_SECURITY_SUFFIXES = (
+    "list_roles",
+    "list_users",
+    "list_findings",
+    "list_role_assignments",
 )
 
 
@@ -56,29 +52,58 @@ class SecurityPostureTool:
             if provider is None:
                 errors.append({"provider": provider_name, "error": "Provider not connected"})
                 continue
-            available = {tool.name for tool in provider.tools}
-            for suffix in SECURITY_TOOL_SUFFIXES:
-                tool_name = f"{provider_name}__{suffix}"
-                if tool_name not in available:
-                    continue
-                try:
-                    result = await router.call_tool(tool_name, {})
+            try:
+                execute_capability = getattr(provider, "execute_capability", None)
+                supports = getattr(provider, "supports", None)
+                if (
+                    callable(execute_capability)
+                    and callable(supports)
+                    and supports(Capability.SECURITY)
+                ):
+                    result = await execute_capability(Capability.SECURITY, {})
                     findings.append(
                         {
                             "provider": provider_name,
-                            "tool": tool_name,
+                            "tool": Capability.SECURITY.value,
                             "status": "error" if result.get("isError") else "ok",
                             "data": result.get("content", result),
                         }
                     )
-                except Exception as exc:
-                    logger.warning(
-                        "security_check_failed",
-                        provider=provider_name,
-                        tool=tool_name,
-                        error=str(exc),
+                else:
+                    available = {tool.name for tool in provider.tools}
+                    legacy_tool = next(
+                        (
+                            name
+                            for name in available
+                            if any(name.endswith(suffix) for suffix in LEGACY_SECURITY_SUFFIXES)
+                        ),
+                        None,
                     )
-                    errors.append({"provider": provider_name, "tool": tool_name, "error": str(exc)})
+                    if legacy_tool is None:
+                        continue
+                    result = await router.call_tool(legacy_tool, {})
+                    findings.append(
+                        {
+                            "provider": provider_name,
+                            "tool": legacy_tool,
+                            "status": "error" if result.get("isError") else "ok",
+                            "data": result.get("content", result),
+                        }
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "security_check_failed",
+                    provider=provider_name,
+                    capability=Capability.SECURITY.value,
+                    error_type=type(exc).__name__,
+                )
+                errors.append(
+                    {
+                        "provider": provider_name,
+                        "capability": Capability.SECURITY.value,
+                        "error": type(exc).__name__,
+                    }
+                )
         summary = {
             "providers_checked": len(selected),
             "checks_run": len(findings),

@@ -311,7 +311,8 @@ class MulticloudMCPServer:
             health = await self.router.health_check_all()
             return JSONResponse(
                 {
-                    "status": "healthy" if all(h.healthy for h in health.values()) else "degraded",
+                    "status": self.health_monitor.overall_status(health),
+                    "live": self.health_monitor.liveness(),
                     "providers": {
                         name: {
                             "healthy": h.healthy,
