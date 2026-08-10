@@ -278,7 +278,6 @@ class MulticloudMCPServer:
                         self.http_metrics["tool_calls"] += 1
                         logger.info(
                             "mcp_tool_call",
-                            event="mcp_tool_call",
                             request_id=request_id,
                             tool=tool_name,
                             provider=provider,
@@ -298,7 +297,6 @@ class MulticloudMCPServer:
                     request_id=request_id,
                     error=str(error),
                     transport="http",
-                    event="http_request_failed",
                 )
                 return self._jsonrpc_error(
                     body.get("id") if isinstance(body, dict) else None,
