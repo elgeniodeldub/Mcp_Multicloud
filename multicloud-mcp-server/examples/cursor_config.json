@@ -2,7 +2,7 @@
   "mcpServers": {
     "multicloud": {
       "command": "uvx",
-      "args": ["multicloud-mcp-server@latest"],
+      "args": ["multicloud-mcp-server@0.1.0"],
       "env": {
         "AWS_REGION": "us-east-1",
         "AZURE_SUBSCRIPTION_ID": "your-subscription-id-here"

@@ -35,3 +35,13 @@ coverage.xml
 .DS_Store
 config.local.yaml
 .env.local
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.yaml
+.aws/
+.azure/
+.pip-audit-cache/

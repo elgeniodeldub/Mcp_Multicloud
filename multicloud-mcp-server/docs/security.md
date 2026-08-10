@@ -37,6 +37,16 @@ La política no sustituye IAM/RBAC del proveedor. Debe combinarse con credencial
 
 Cada invocación HTTP registra request ID, tool, provider, IP, resultado, duración y política. No se registran headers de autorización, credenciales ni argumentos sensibles. Los contadores Prometheus no usan request ID, IP, account ID, subscription ID ni resource ID como labels.
 
+## Supply chain y releases
+
+La CI ejecuta tests, cobertura, Ruff, mypy estricto, build de paquete, `pip-audit`, Gitleaks y Trivy. CodeQL analiza Python en cada cambio relevante y semanalmente. Dependabot revisa semanalmente PyPI, Docker y GitHub Actions.
+
+Las dependencias de los proveedores MCP del ejemplo están fijadas a versiones concretas; evita `@latest` en despliegues. La imagen Docker usa un builder separado y el runtime conserva únicamente lo necesario, ejecutando como `mcp` sin privilegios.
+
+Cada release SemVer genera wheel, sdist, SBOM CycloneDX del entorno Python, SBOM SPDX de la imagen y `SHA256SUMS`. GitHub Artifact Attestations permiten verificar la procedencia con el repositorio, commit y workflow.
+
+El workflow de release no publica automáticamente en PyPI ni en un registry de contenedores. Si se habilita esa publicación, debe hacerse en un entorno protegido con OIDC, permisos mínimos y revisión humana. La protección de ramas y Private Vulnerability Reporting deben habilitarse en la configuración del repositorio.
+
 ## Docker
 
 El contenedor conserva el usuario no root `mcp`. El healthcheck real solo consulta `/health` cuando `MULTICLOUD_TRANSPORT=http`; el modo stdio no tiene un endpoint HTTP que monitorizar. Para despliegues externos configura explícitamente `server.http.host: 0.0.0.0` y coloca TLS y controles de red delante del contenedor.

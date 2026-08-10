@@ -28,7 +28,7 @@ class AWSProvider(ProviderAdapter):
             name="aws",
             namespace="aws",
             command=command,
-            args=args or ["awslabs.core-mcp-server@latest"],
+            args=args or ["awslabs.core-mcp-server@1.0.27"],
             env=env or {},
             timeout=timeout,
         )

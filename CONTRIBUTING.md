@@ -1,77 +1,18 @@
 # Contributing
 
-Thank you for contributing to Multicloud MCP Server.
-
-## Principles
-
-- Keep provider-specific behavior inside provider adapters.
-- Implement cross-cloud orchestration in native multicloud tools.
-- Depend on provider abstractions rather than provider internals.
-- Preserve tool namespaces and avoid collisions.
-- Prefer least-privilege cloud access.
-- Do not add secrets, tokens, cloud keys, or customer data to tests/examples.
-
-## Setup
+1. Branch from `main`.
+2. Keep changes focused.
+3. Add/update tests.
+4. Update docs when behavior, configuration, or tool contracts change.
+5. Run:
 
 ```bash
-python -m venv .venv
-python -m pip install -e .
-python -m pip install pytest pytest-cov mypy ruff
-```
-
-Activate the virtual environment using the command appropriate for your OS.
-
-## Before submitting a change
-
-Run:
-
-```bash
+cd multicloud-mcp-server
 python -m pytest
-python -m mypy --strict src
 python -m ruff check .
+python -m mypy --strict src
 ```
 
-## Adding a provider
+Do not commit cloud credentials, API keys, Bearer tokens, `.env` files, private keys, client secrets, or production secrets.
 
-A provider contribution should include:
-
-- implementation of the provider base contract;
-- tool discovery;
-- tool invocation;
-- health checking;
-- timeout handling;
-- unit tests;
-- integration mock coverage;
-- documentation update.
-
-## Adding a multicloud tool
-
-A native tool contribution should include:
-
-- implementation under `src/multicloud_mcp/tools/`;
-- MCP definition/input schema;
-- server registration;
-- dispatch implementation;
-- unit tests;
-- documentation in `docs/TOOLS.md`.
-
-## Coding style
-
-- type public/internal boundaries explicitly;
-- keep async provider operations non-blocking;
-- use structured logs rather than ad-hoc `print()` calls;
-- return actionable errors;
-- avoid catching broad exceptions unless the boundary intentionally normalizes provider failures;
-- keep secrets out of logs.
-
-## Documentation
-
-Update documentation whenever a change modifies:
-
-- CLI behavior;
-- config schema;
-- tool names/schemas;
-- provider support;
-- transport behavior;
-- health behavior;
-- deployment requirements.
+When changing MCP tools, keep names stable unless intentionally breaking, document schemas/limitations, return structured results, and distinguish actual billing data from estimates.

@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: multicloud-mcp-server
+    steps:
+      # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      # v6.0.0
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: "3.12"
+      - name: Validate semantic version tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must use vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+      - run: python -m pip install --upgrade pip "uv==0.12.3"
+      - run: uv sync --frozen --extra dev
+      - run: uv run python -m pytest
+      - run: uv run python -m ruff check .
+      - run: uv run python -m mypy --strict src
+      - run: uv run python -m pip freeze | grep -v -i "multicloud-mcp-server" > /tmp/requirements-audit.txt
+      - run: uv run python -m pip_audit --strict -r /tmp/requirements-audit.txt
+      - run: uv run python -m build
+      - name: Build release container
+        run: docker build --tag multicloud-mcp-server:${{ github.ref_name }} .
+      - name: Scan release container
+        run: >-
+          docker run --rm
+          -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.58.2 image
+          --severity HIGH,CRITICAL --exit-code 1
+          multicloud-mcp-server:${{ github.ref_name }}
+      - name: Generate Python SBOM
+        run: |
+          mkdir -p sbom
+          uv run cyclonedx-py environment --output-format json --output-file sbom/multicloud-mcp-server-python.cdx.json
+      - name: Generate container SBOM
+        working-directory: .
+        run: >-
+          docker run --rm
+          -v "${{ github.workspace }}:/src"
+          anchore/syft:v1.18.1
+          multicloud-mcp-server:${{ github.ref_name }}
+          -o spdx-json=/src/multicloud-mcp-server/sbom/multicloud-mcp-server-container.spdx.json
+      - name: Generate checksums
+        run: find dist sbom -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+      - name: Attest release files
+        # v2.2.0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: |
+            multicloud-mcp-server/dist/*
+            multicloud-mcp-server/sbom/*
+            multicloud-mcp-server/SHA256SUMS
+      - name: Publish GitHub release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" multicloud-mcp-server/dist/* multicloud-mcp-server/sbom/* multicloud-mcp-server/SHA256SUMS --generate-notes

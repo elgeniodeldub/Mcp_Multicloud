@@ -9,9 +9,7 @@ description = "Unified Multicloud MCP Server for AWS and Azure â€” a proxy 
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-authors = [
-    {name = "Your Name", email = "you@example.com"},
-]
+authors = [{name = "elgeniodeldub"}]
 keywords = [
     "mcp", "model-context-protocol", "multicloud", "aws", "azure",
     "cloud", "ai", "agent",
@@ -49,15 +47,18 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.10.0",
     "pre-commit>=3.0.0",
+    "build>=1.2.0",
+    "pip-audit>=2.7.0",
+    "cyclonedx-bom>=7.3.0",
 ]
 
 [project.scripts]
 multicloud-mcp-server = "multicloud_mcp.server:main"
 
 [project.urls]
-Homepage = "https://github.com/your-org/multicloud-mcp-server"
-Repository = "https://github.com/your-org/multicloud-mcp-server"
-Issues = "https://github.com/your-org/multicloud-mcp-server/issues"
+Homepage = "https://github.com/elgeniodeldub/Mcp_Multicloud"
+Repository = "https://github.com/elgeniodeldub/Mcp_Multicloud"
+Issues = "https://github.com/elgeniodeldub/Mcp_Multicloud/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/multicloud_mcp"]
