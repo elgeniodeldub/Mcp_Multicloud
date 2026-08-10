@@ -74,7 +74,13 @@ jobs:
           docker run --rm
           -v "${{ github.workspace }}:/repo"
           zricethezav/gitleaks:v8.28.0
-          git --source=/repo --redact --no-banner
+          git /repo --redact --no-banner
+      - name: Scan working tree with Gitleaks
+        run: >-
+          docker run --rm
+          -v "${{ github.workspace }}:/repo"
+          zricethezav/gitleaks:v8.28.0
+          dir /repo --redact --no-banner
 
   container-scan:
     name: container-scan
