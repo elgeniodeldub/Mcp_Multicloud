@@ -6,6 +6,10 @@ Single MCP-facing service for AWS and Azure with dynamic provider routing.
 ## FinOps
 - `finops__get_actual_costs`: AWS Cost Explorer `UnblendedCost` + Azure Cost Management `PreTaxCost`.
 - `finops__compare_list_prices`: illustrative public list-price comparison for compute/storage/database.
+- `finops__gcp_list_prices`: public GCP SKU/list-price lookup through the Cloud Billing Catalog API.
+
+GCP support is limited to public list prices. Actual GCP usage cost, BigQuery,
+and Cloud Billing exports are intentionally out of scope.
 
 ## Discovery
 `multicloud__discover_resources` supports compute, storage, database, and Kubernetes discovery using compatible provider-native listing tools.

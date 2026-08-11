@@ -64,6 +64,7 @@ class MulticloudToolsConfig(BaseModel):
     tools: list[str] = Field(
         default_factory=lambda: [
             "actual_costs",
+            "gcp_list_prices",
             "get_cost",
             "breakdown",
             "compare",

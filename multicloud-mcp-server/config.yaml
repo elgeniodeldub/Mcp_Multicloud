@@ -50,6 +50,7 @@ multicloud:
   enabled: true
   tools:
     - actual_costs
+    - gcp_list_prices
     - get_cost
     - breakdown
     - compare

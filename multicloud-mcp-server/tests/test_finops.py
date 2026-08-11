@@ -11,6 +11,7 @@ from multicloud_mcp.finops.enums import CostMetric, FinOpsDimension
 from multicloud_mcp.finops.models import FinOpsCostResult, FinOpsQuery
 from multicloud_mcp.finops.providers.aws import AWSFinOpsProvider
 from multicloud_mcp.finops.providers.azure import AzureFinOpsProvider
+from multicloud_mcp.finops.providers.gcp import GCPListPriceProvider
 from multicloud_mcp.finops.services.cost_service import FinOpsCostService
 from multicloud_mcp.finops.services.service_category import normalize_service_category
 from multicloud_mcp.finops.tools.breakdown import FinOpsBreakdownTool
@@ -204,3 +205,61 @@ def test_service_category_and_cache_key() -> None:
     assert query(metric=CostMetric.BILLED, group_by=[FinOpsDimension.ACCOUNT]).cache_key.endswith(
         ":billed_cost:account:"
     )
+
+
+class FakeGCPResponse:
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, Any]:
+        return {
+            "skus": [
+                {
+                    "skuId": "sku-1",
+                    "serviceId": "service-1",
+                    "description": "Compute Engine test SKU",
+                    "serviceRegions": ["us-central1"],
+                    "pricingInfo": [
+                        {
+                            "effectiveTime": "2026-08-01T00:00:00Z",
+                            "pricingExpression": {
+                                "usageUnit": "h",
+                                "tieredRates": [
+                                    {
+                                        "startUsageAmount": 0,
+                                        "unitPrice": {"units": "1", "nanos": 250000000},
+                                    }
+                                ],
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+
+
+class FakeGCPClient:
+    def __init__(self, **_: Any) -> None:
+        self.url = ""
+        self.params: dict[str, Any] = {}
+
+    async def __aenter__(self) -> "FakeGCPClient":
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        return None
+
+    async def get(self, url: str, **kwargs: Any) -> FakeGCPResponse:
+        self.url = url
+        self.params = kwargs["params"]
+        return FakeGCPResponse()
+
+
+@pytest.mark.asyncio
+async def test_gcp_provider_reads_public_catalog_prices_with_decimal_normalization() -> None:
+    client = FakeGCPClient()
+    provider = GCPListPriceProvider(api_key="test-key", client_factory=lambda **kwargs: client)
+    prices = await provider.list_prices("service-1", region="us-central1")
+    assert client.url.endswith("/services/service-1/skus")
+    assert client.params["filter"] == "serviceRegions:(us-central1)"
+    assert prices[0]["pricing"][0]["rates"][0]["unit_price"] == "1.25"

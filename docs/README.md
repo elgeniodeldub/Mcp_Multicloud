@@ -7,3 +7,4 @@
 - [Security](SECURITY.md)
 - [Operations](OPERATIONS.md)
 - [Development](DEVELOPMENT.md)
+- [GCP list-price support](gcp.md)

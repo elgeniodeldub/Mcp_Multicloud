@@ -97,6 +97,13 @@ def test_default_native_registry_respects_enabled_tools() -> None:
         registry.get("multicloud__list_providers")
 
 
+def test_default_native_registry_includes_gcp_list_prices() -> None:
+    server = MulticloudMCPServer(Settings())
+    context = NativeToolContext(server.router, server.health_monitor, server.finops_service)
+    registry = build_native_tool_registry(context, ["gcp_list_prices"])
+    assert registry.get("finops__gcp_list_prices").name == "finops__gcp_list_prices"
+
+
 def test_server_initializes_registries_without_connecting_providers() -> None:
     server = MulticloudMCPServer(Settings())
     assert server.provider_registry.supports("aws")

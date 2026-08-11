@@ -27,6 +27,22 @@
 
 Illustrative estimator only; not actual billing.
 
+## `finops__gcp_list_prices`
+
+```json
+{
+  "service_id": "services/6F81-5844-456A",
+  "region": "us-central1",
+  "currency": "USD",
+  "page_size": 100
+}
+```
+
+Queries public GCP SKU prices from the Cloud Billing Catalog API. The API key
+must be provided through `GCP_BILLING_API_KEY`; it is never stored in YAML or
+returned in the response. This tool does not query actual spend or use
+BigQuery/billing exports.
+
 ## `multicloud__map_resource`
 Maps a resource/service concept between AWS and Azure.
 

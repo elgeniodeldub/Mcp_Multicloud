@@ -8,6 +8,7 @@ from typing import Any
 from multicloud_mcp.finops.services.cost_service import FinOpsCostService
 from multicloud_mcp.finops.tools.breakdown import FinOpsBreakdownTool
 from multicloud_mcp.finops.tools.compare import FinOpsCompareTool
+from multicloud_mcp.finops.tools.gcp_list_prices import GCPListPricesTool
 from multicloud_mcp.finops.tools.get_cost import FinOpsGetCostTool
 from multicloud_mcp.health import HealthMonitor
 from multicloud_mcp.providers.base import ToolInfo
@@ -108,6 +109,7 @@ def build_native_tool_registry(
         "compare": _finops_compare,
         "actual_costs": _no_context(ActualCostsTool()),
         "list_price_comparison": _no_context(ListPriceComparisonTool()),
+        "gcp_list_prices": _no_context(GCPListPricesTool()),
         "resource_mapper": _no_context(ResourceMapperTool()),
         "list_providers": _list_providers,
         "discover_resources": _discover_resources,
