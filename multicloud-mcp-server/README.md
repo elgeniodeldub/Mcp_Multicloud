@@ -30,4 +30,12 @@ python -m mypy --strict src
 
 HTTP defaults to `127.0.0.1`. Use `examples/config.secure.yaml` for hardened HTTP configuration.
 
+The default AWS raw MCP passthrough is disabled because the configured external
+`awslabs.core-mcp-server` package is not currently compatible with the MCP
+dependency set. Native AWS FinOps tools remain available through Cost Explorer.
+
 The live FinOps architecture is documented in [docs/finops.md](docs/finops.md).
+Hermes Agent integration is documented in [docs/hermes.md](docs/hermes.md).
+GCP list-price support is available through `finops__gcp_list_prices`. It uses
+the Google Cloud Billing Catalog API only; it does not use BigQuery, billing
+exports, or actual-cost data. See [GCP support](docs/gcp.md).

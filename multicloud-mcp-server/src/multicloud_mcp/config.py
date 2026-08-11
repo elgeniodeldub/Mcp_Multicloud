@@ -77,6 +77,16 @@ class MulticloudToolsConfig(BaseModel):
     )
 
 
+class ToolExposureConfig(BaseModel):
+    """Controls which tool classes are visible to external MCP clients."""
+
+    native_tools: bool = True
+    provider_passthrough: bool = True
+    provider_allowlist: list[str] = Field(default_factory=list)
+    tool_allowlist: list[str] = Field(default_factory=list)
+    tool_denylist: list[str] = Field(default_factory=list)
+
+
 class HttpConfig(BaseModel):
     """HTTP transport configuration."""
 
@@ -196,6 +206,7 @@ class Settings(BaseSettings):
     server: ServerConfig = Field(default_factory=ServerConfig)
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     multicloud: MulticloudToolsConfig = Field(default_factory=MulticloudToolsConfig)
+    tool_exposure: ToolExposureConfig = Field(default_factory=ToolExposureConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
 

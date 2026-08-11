@@ -22,7 +22,12 @@ class FinOpsGetCostTool:
     def get_tool_info(self) -> ToolInfo:
         return ToolInfo(
             name="finops__get_cost",
-            description="Get normalized live AWS and Azure cost totals using a FOCUS-aligned domain model.",
+            description=(
+                "Read-only normalized live cost totals for AWS and Azure using a "
+                "FOCUS-aligned model. Use for current provider spend, not public list "
+                "prices; GCP actual cost is unsupported. Returns Decimal-safe totals, "
+                "currency separation, partial-provider status, and period metadata."
+            ),
             input_schema=self._schema(),
             original_name="finops__get_cost",
             provider="finops",

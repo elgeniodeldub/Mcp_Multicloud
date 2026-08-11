@@ -54,7 +54,12 @@ class DiscoverResourcesTool:
     def get_tool_info(self) -> ToolInfo:
         return ToolInfo(
             name="multicloud__discover_resources",
-            description="Discover all active resources across connected AWS and Azure accounts.",
+            description=(
+                "Read-only semantic resource discovery across connected AWS and Azure "
+                "providers. Use for compute, storage, database, or Kubernetes inventory; "
+                "returns capability-normalized resources and partial provider failures. "
+                "It does not modify resources and does not include GCP resources."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {

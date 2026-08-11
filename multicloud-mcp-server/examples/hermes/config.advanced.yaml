@@ -1,0 +1,14 @@
+# Advanced profile: includes raw AWS/Azure passthrough tools.
+mcp_servers:
+  multicloud_advanced:
+    command: "python"
+    args:
+      - "-m"
+      - "multicloud_mcp.server"
+      - "--config"
+      - "examples/hermes/multicloud.advanced.yaml"
+    timeout: 120
+    connect_timeout: 60
+    tools:
+      prompts: false
+      resources: false

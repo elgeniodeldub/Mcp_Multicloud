@@ -5,11 +5,19 @@ from __future__ import annotations
 import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
 
 import structlog
 
 logger = structlog.get_logger()
+
+
+class ToolSafety(StrEnum):
+    """Safety classification exposed as tool metadata."""
+
+    READ_ONLY = "read_only"
+    MUTATING = "mutating"
 
 
 @dataclass
@@ -33,6 +41,7 @@ class ToolInfo:
     original_name: str
     provider: str
     namespace: str
+    safety: ToolSafety = ToolSafety.READ_ONLY
 
 
 class ProviderAdapter(ABC):

@@ -25,7 +25,12 @@ class SecurityPostureTool:
     def get_tool_info(self) -> ToolInfo:
         return ToolInfo(
             name="multicloud__security_posture",
-            description="Analyze security configurations across AWS and Azure (public buckets, open security groups, etc.)",
+            description=(
+                "Read-only security posture analysis across AWS and Azure, including "
+                "available exposure, IAM, findings, and capability checks. Use for "
+                "security visibility, not remediation; returns findings and partial "
+                "provider status. GCP security is not included."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {

@@ -20,8 +20,11 @@ class ActualCostsTool:
         return ToolInfo(
             name="finops__get_actual_costs",
             description=(
-                "Retrieve actual non-amortized cloud costs from AWS Cost Explorer and "
-                "Azure Cost Management. AWS uses UnblendedCost and Azure uses PreTaxCost. "
+                "Read-only historical actual/non-amortized spend from AWS Cost Explorer "
+                "and Azure Cost Management. Use this for billed AWS/Azure spend, not list "
+                "price estimates; GCP actual spend is not supported. Returns grouped cost "
+                "data by provider/period and never performs cloud mutations. AWS uses "
+                "UnblendedCost and Azure uses PreTaxCost. "
                 "Results are reported per provider and are not price-list estimates."
             ),
             input_schema={

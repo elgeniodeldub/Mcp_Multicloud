@@ -24,7 +24,12 @@ class FinOpsCompareTool:
     def get_tool_info(self) -> ToolInfo:
         return ToolInfo(
             name="finops__compare",
-            description="Compare live costs between AWS/Azure providers or two explicit periods.",
+            description=(
+                "Read-only deterministic comparison of AWS/Azure live costs between "
+                "providers or periods. Use for spend differences and percentages, not "
+                "public list prices; GCP actual cost is unsupported. Returns absolute "
+                "and percentage differences without LLM calculations."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {

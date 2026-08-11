@@ -22,9 +22,19 @@ security:
   tool_policy:
     mode: allow_all
 
+tool_exposure:
+  native_tools: true
+  provider_passthrough: true
+  provider_allowlist: []
+  tool_allowlist: []
+  tool_denylist: []
+
 providers:
   aws:
-    enabled: true
+    # Disabled by default because the external awslabs MCP package is not
+    # currently compatible with this project's MCP SDK dependency.
+    # Native AWS FinOps tools continue to use boto3 and Cost Explorer.
+    enabled: false
     command: "uvx"
     args: ["awslabs.core-mcp-server@1.0.27"]
     env:

@@ -17,7 +17,12 @@ class ListProvidersTool:
     def get_tool_info(self) -> ToolInfo:
         return ToolInfo(
             name="multicloud__list_providers",
-            description="List all connected cloud providers, their health status, latency, and available tools count.",
+            description=(
+                "Read-only health and capability status for connected AWS and Azure "
+                "providers. Use to check availability before discovery or cost queries. "
+                "Returns health, latency, circuit state, and tool counts; GCP list-price "
+                "catalog access is intentionally not represented as a connected provider."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {},

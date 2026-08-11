@@ -18,8 +18,10 @@ class GCPListPricesTool:
         return ToolInfo(
             name="finops__gcp_list_prices",
             description=(
-                "Get public GCP on-demand SKU prices from Cloud Billing Catalog. "
-                "This is list pricing only, not actual cost."
+                "Read-only lookup of public GCP SKU/list prices from Cloud Billing Catalog. "
+                "Use for public pricing, not actual spend. Requires GCP_BILLING_API_KEY. "
+                "It does not return usage, discounts, credits, commitments, or GCP billing. "
+                "Use AWS/Azure actual-cost tools for billed spend."
             ),
             input_schema={
                 "type": "object",
@@ -56,6 +58,9 @@ class GCPListPricesTool:
             "currency": currency,
             "service_id": service_id,
             "prices": prices,
+            "returned_count": len(prices),
+            "truncated": self.provider.last_page_token is not None,
+            "next_cursor": self.provider.last_page_token,
             "limitations": [
                 "Public on-demand/list pricing only.",
                 "Excludes discounts, credits, commitments, taxes, and actual usage cost.",

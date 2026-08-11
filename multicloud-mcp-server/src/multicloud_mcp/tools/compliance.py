@@ -18,7 +18,11 @@ class ComplianceCheckerTool:
     def get_tool_info(self) -> ToolInfo:
         return ToolInfo(
             name="multicloud__compliance_check",
-            description="Verify cloud compliance against CIS or NIST frameworks across AWS and Azure.",
+            description=(
+                "Read-only compliance readiness assessment against CIS or NIST across "
+                "AWS and Azure. Use to identify control gaps, not to certify compliance "
+                "or change resources; returns checks, findings, and provider errors."
+            ),
             input_schema={
                 "type": "object",
                 "required": ["framework"],

@@ -19,3 +19,10 @@ security:
     requests_per_minute: 60
   tool_policy:
     mode: read_only
+
+tool_exposure:
+  native_tools: true
+  provider_passthrough: false
+  provider_allowlist: []
+  tool_allowlist: []
+  tool_denylist: []

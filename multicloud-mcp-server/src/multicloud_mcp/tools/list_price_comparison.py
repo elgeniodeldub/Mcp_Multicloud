@@ -18,8 +18,10 @@ class ListPriceComparisonTool:
         return ToolInfo(
             name="finops__compare_list_prices",
             description=(
-                "Compare AWS and Azure public on-demand list prices for equivalent "
-                "workload shapes. Results are estimates and exclude discounts, "
+                "Read-only illustrative comparison of AWS and Azure public on-demand "
+                "list prices for equivalent workload shapes. Use for price planning, "
+                "not actual spend; use finops__gcp_list_prices for native GCP SKU lookup. "
+                "Results are estimates and exclude discounts, "
                 "credits, reservations, amortization, taxes, and invoiced spend."
             ),
             input_schema={

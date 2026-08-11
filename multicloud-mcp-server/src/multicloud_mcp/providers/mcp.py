@@ -6,7 +6,7 @@ import time
 from typing import Any
 
 from multicloud_mcp.domain.exceptions import CapabilityNotSupportedError
-from multicloud_mcp.providers.base import ProviderAdapter, ProviderHealth, ToolInfo
+from multicloud_mcp.providers.base import ProviderAdapter, ProviderHealth, ToolInfo, ToolSafety
 from multicloud_mcp.providers.capabilities import Capability
 from multicloud_mcp.providers.resilience import ProviderCircuitBreaker, ResilientExecutor
 from multicloud_mcp.providers.transport import ProviderTransport, StdioMCPTransport
@@ -76,6 +76,14 @@ class MCPProviderAdapter(ProviderAdapter):
                     original_name=tool.name,
                     provider=self.name,
                     namespace=self.namespace,
+                    safety=(
+                        ToolSafety.MUTATING
+                        if any(
+                            verb in tool.name.lower().split("__")
+                            for verb in ("create", "delete", "remove", "terminate", "update", "modify", "start", "stop", "deploy", "execute")
+                        )
+                        else ToolSafety.READ_ONLY
+                    ),
                 )
                 for tool in response.tools
             ]

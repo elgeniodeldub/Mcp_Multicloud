@@ -23,7 +23,12 @@ class FinOpsBreakdownTool:
     def get_tool_info(self) -> ToolInfo:
         return ToolInfo(
             name="finops__breakdown",
-            description="Break down live AWS and Azure costs by provider, account, service, category, or region.",
+            description=(
+                "Read-only live AWS/Azure cost breakdown by provider, account, service, "
+                "category, or region. Use for normalized spend analysis; it is not a "
+                "list-price estimator and does not support actual GCP cost. Returns "
+                "grouped values with currency and partial-provider metadata."
+            ),
             input_schema={
                 "type": "object",
                 "required": ["group_by"],

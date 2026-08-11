@@ -29,6 +29,7 @@ class GCPListPriceProvider:
     ) -> None:
         self._api_key = api_key or os.environ.get("GCP_BILLING_API_KEY", "")
         self._client_factory = client_factory or httpx.AsyncClient
+        self.last_page_token: str | None = None
 
     async def list_prices(
         self,
@@ -37,7 +38,12 @@ class GCPListPriceProvider:
         currency: str = "USD",
         page_size: int = 100,
     ) -> list[dict[str, Any]]:
-        """Return public SKU pricing for a GCP service."""
+        """Return public SKU pricing for a GCP service.
+
+        ``service_id`` is the Cloud Billing Catalog service identifier, for
+        example ``services/6F81-5844-456A`` for Compute Engine. The API key is
+        read only from ``GCP_BILLING_API_KEY`` unless injected for testing.
+        """
         if not self._api_key:
             raise FinOpsQueryError(
                 "GCP_BILLING_API_KEY is required for GCP public list prices"
@@ -56,10 +62,13 @@ class GCPListPriceProvider:
                 response = await client.get(url, params=params)
                 response.raise_for_status()
                 payload = response.json()
+        except FinOpsQueryError:
+            raise
         except Exception as exc:
             raise FinOpsQueryError(
                 f"GCP Cloud Billing Catalog query failed: {type(exc).__name__}"
             ) from exc
+        self.last_page_token = payload.get("nextPageToken")
         return [self._normalize_sku(sku) for sku in payload.get("skus", [])]
 
     @staticmethod
@@ -74,9 +83,7 @@ class GCPListPriceProvider:
                 rates.append(
                     {
                         "start_usage_amount": str(tier.get("startUsageAmount", 0)),
-                        "unit_price": str(
-                            Decimal(str(units)) + Decimal(str(nanos)) / Decimal("1000000000")
-                        ),
+                        "unit_price": str(Decimal(str(units)) + Decimal(str(nanos)) / Decimal("1000000000")),
                     }
                 )
             pricing.append(

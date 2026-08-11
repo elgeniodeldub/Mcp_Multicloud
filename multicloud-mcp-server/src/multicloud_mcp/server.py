@@ -7,7 +7,6 @@ import asyncio
 import json
 import signal
 import sys
-import time
 import uuid
 from typing import Any
 
@@ -22,8 +21,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Route
 
+from multicloud_mcp.application.context import ExecutionContext
+from multicloud_mcp.application.executor import ApplicationToolExecutor
 from multicloud_mcp.config import Settings
-from multicloud_mcp.finops.exceptions import FinOpsError
 from multicloud_mcp.finops.services.cost_service import FinOpsCostService
 from multicloud_mcp.health import HealthMonitor
 from multicloud_mcp.providers.base import ProviderAdapter, ToolInfo
@@ -32,8 +32,8 @@ from multicloud_mcp.providers.registry import (
     ProviderRegistryError,
     build_provider_registry,
 )
-from multicloud_mcp.router import ProviderRouter, ToolNotFoundError
-from multicloud_mcp.security import ToolBlockedError, ToolSecurityPolicy
+from multicloud_mcp.router import ProviderRouter
+from multicloud_mcp.security import ToolSecurityPolicy
 from multicloud_mcp.security.auth import BearerAuthenticator
 from multicloud_mcp.security.middleware import SecurityMiddleware
 from multicloud_mcp.security.rate_limit import InMemoryRateLimiter
@@ -57,6 +57,9 @@ class MulticloudMCPServer:
             NativeToolContext(self.router, self.health_monitor, self.finops_service),
             settings.multicloud.tools,
         )
+        self.tool_executor = ApplicationToolExecutor(
+            self.native_tools, self.router, self.security_policy
+        )
         self.http_metrics: dict[str, int] = {
             "requests": 0,
             "auth_failures": 0,
@@ -75,8 +78,10 @@ class MulticloudMCPServer:
             """List all available tools from all providers."""
             tools = await self.router.refresh_tools()
 
-            if self.settings.multicloud.enabled:
+            if self.settings.multicloud.enabled and self.settings.tool_exposure.native_tools:
                 tools.extend(self.native_tools.list_tools())
+
+            tools = [tool for tool in tools if self._tool_exposed(tool.name)]
 
             return [
                 Tool(
@@ -90,26 +95,34 @@ class MulticloudMCPServer:
         @self.server.call_tool()  # type: ignore[untyped-decorator]
         async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             """Route tool call to appropriate provider."""
-            try:
-                self.security_policy.authorize_tool(name)
-                native_tool = self.native_tools.get_optional(name)
-                if native_tool is not None:
-                    result = await native_tool.execute(arguments)
-                    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+            context = ExecutionContext.from_arguments(
+                str(uuid.uuid4()), arguments, "stdio"
+            )
+            if not self._tool_exposed(name):
+                return [TextContent(type="text", text=json.dumps({"error": "tool_not_found"}))]
+            result = await self.tool_executor.execute(name, arguments, context)
+            if result.errors:
+                return [TextContent(type="text", text=json.dumps(result.legacy_data(), indent=2))]
 
-                result = await self.router.call_tool(name, arguments)
+            try:
+                payload = result.legacy_data()
+                if self.native_tools.get_optional(name) is not None:
+                    return [TextContent(type="text", text=json.dumps(payload, indent=2))]
+                if not isinstance(payload, dict):
+                    return [TextContent(type="text", text=json.dumps(payload, indent=2))]
+                provider_result = payload
                 provider = self.router.get_provider_for_tool(name)
                 if provider:
                     self.health_monitor.record_result(
                         provider.name,
-                        not result.get("isError", False),
+                        not provider_result.get("isError", False),
                     )
 
-                if result.get("isError"):
-                    return [TextContent(type="text", text=f"Error: {result['content']}")]
+                if provider_result.get("isError"):
+                    return [TextContent(type="text", text=f"Error: {provider_result['content']}")]
 
                 content_parts = []
-                for item in result.get("content", []):
+                for item in provider_result.get("content", []):
                     if item.get("type") == "text":
                         content_parts.append(item["text"])
                     else:
@@ -117,26 +130,8 @@ class MulticloudMCPServer:
 
                 return [TextContent(type="text", text="\n".join(content_parts))]
 
-            except ToolNotFoundError as e:
-                return [TextContent(type="text", text=f"Tool not found: {e}")]
-            except ToolBlockedError as e:
-                return [
-                    TextContent(
-                        type="text",
-                        text=json.dumps(
-                            {
-                                "error": "tool_blocked_by_policy",
-                                "tool": e.tool_name,
-                                "policy": e.policy,
-                            }
-                        ),
-                    )
-                ]
-            except FinOpsError as e:
-                return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
-            except Exception as e:
-                logger.error("tool_call_failed", tool=name, transport="stdio", error=str(e))
-                return [TextContent(type="text", text="Internal server error")]
+            except Exception:
+                return [TextContent(type="text", text=json.dumps({"error": "upstream_error"}))]
 
     async def initialize(self) -> None:
         """Initialize all configured providers."""
@@ -212,8 +207,9 @@ class MulticloudMCPServer:
 
                 if method == "tools/list":
                     tools = await self.router.refresh_tools()
-                    if self.settings.multicloud.enabled:
+                    if self.settings.multicloud.enabled and self.settings.tool_exposure.native_tools:
                         tools.extend(self.native_tools.list_tools())
+                    tools = [tool for tool in tools if self._tool_exposed(tool.name)]
                     return JSONResponse(
                         {
                             "jsonrpc": "2.0",
@@ -239,54 +235,34 @@ class MulticloudMCPServer:
                             body.get("id"), -32602, "invalid_request", 400, request_id
                         )
 
-                    started = time.perf_counter()
-                    success = False
-                    provider = tool_name.split("__", 1)[0]
-                    try:
-                        self.security_policy.authorize_tool(tool_name)
-                        native_tool = self.native_tools.get_optional(tool_name)
-                        if native_tool is not None:
-                            result = await native_tool.execute(arguments)
-                            result = {
-                                "content": [{"type": "text", "text": json.dumps(result, indent=2)}]
-                            }
-                        else:
-                            result = await self.router.call_tool(tool_name, arguments)
-                        success = not result.get("isError", False)
-                        return JSONResponse(
-                            {"jsonrpc": "2.0", "id": body.get("id"), "result": result}
-                        )
-                    except ToolBlockedError as error:
-                        self.http_metrics["tool_policy_rejections"] += 1
-                        return self._jsonrpc_error(
-                            body.get("id"),
-                            -32003,
-                            "tool_blocked_by_policy",
-                            403,
-                            request_id,
-                            {"tool": error.tool_name, "policy": error.policy},
-                        )
-                    except ToolNotFoundError:
+                    context = ExecutionContext.from_arguments(
+                        request_id, arguments, "http"
+                    )
+                    if not self._tool_exposed(tool_name):
                         return self._jsonrpc_error(
                             body.get("id"), -32601, "tool_not_found", 404, request_id
                         )
-                    except FinOpsError as error:
+                    result = await self.tool_executor.execute(tool_name, arguments, context)
+                    self.http_metrics["tool_calls"] += 1
+                    if result.errors:
+                        error = result.errors[0]
+                        status = 403 if error.code == "tool_blocked_by_policy" else 400
                         return self._jsonrpc_error(
-                            body.get("id"), -32010, str(error), 400, request_id
+                            body.get("id"), -32010, error.code, status, request_id,
+                            {"message": error.message},
                         )
-                    finally:
-                        self.http_metrics["tool_calls"] += 1
-                        logger.info(
-                            "mcp_tool_call",
-                            request_id=request_id,
-                            tool=tool_name,
-                            provider=provider,
-                            transport="http",
-                            client_ip=getattr(request.state, "client_ip", "unknown"),
-                            success=success,
-                            duration_ms=round((time.perf_counter() - started) * 1000, 2),
-                            policy=self.security_policy.mode,
+                    payload = result.legacy_data()
+                    if isinstance(payload, dict) and payload.get("content"):
+                        return JSONResponse(
+                            {"jsonrpc": "2.0", "id": body.get("id"), "result": payload}
                         )
+                    return JSONResponse(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": body.get("id"),
+                            "result": {"content": [{"type": "text", "text": json.dumps(payload, indent=2)}]},
+                        }
+                    )
 
                 return self._jsonrpc_error(
                     body.get("id"), -32601, "invalid_request", 404, request_id
@@ -400,6 +376,21 @@ class MulticloudMCPServer:
             {"jsonrpc": "2.0", "id": request_id, "error": error, "request_id": correlation_id},
             status_code=status,
         )
+
+    def _tool_exposed(self, name: str) -> bool:
+        """Apply external visibility policy to native and passthrough tools."""
+        exposure = self.settings.tool_exposure
+        if name.startswith("aws__") or name.startswith("azure__"):
+            if not exposure.provider_passthrough:
+                return False
+            provider = name.split("__", 1)[0]
+            if exposure.provider_allowlist and provider not in exposure.provider_allowlist:
+                return False
+        if (name.startswith("multicloud__") or name.startswith("finops__")) and not exposure.native_tools:
+            return False
+        if exposure.tool_allowlist and name not in exposure.tool_allowlist:
+            return False
+        return name not in exposure.tool_denylist
 
     async def run_http(self) -> None:
         """Run server with secured HTTP transport."""

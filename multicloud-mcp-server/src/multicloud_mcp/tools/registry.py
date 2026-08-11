@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from multicloud_mcp.providers.base import ToolInfo
+from multicloud_mcp.providers.base import ToolInfo, ToolSafety
 
 
 class NativeToolError(Exception):
@@ -88,3 +88,7 @@ class NativeToolRegistry:
 
     def __contains__(self, name: str) -> bool:
         return name in self._tools
+
+    def safety(self, name: str) -> ToolSafety:
+        """Return the registered tool safety classification."""
+        return self.get(name).get_tool_info().safety

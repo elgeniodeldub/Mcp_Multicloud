@@ -1,0 +1,25 @@
+# Copy this block into ~/.hermes/config.yaml after installing the package.
+mcp_servers:
+  multicloud_semantic:
+    command: "python"
+    args:
+      - "-m"
+      - "multicloud_mcp.server"
+      - "--config"
+      - "examples/hermes/multicloud.semantic.yaml"
+    timeout: 120
+    connect_timeout: 60
+    tools:
+      include:
+        - multicloud__list_providers
+        - multicloud__discover_resources
+        - multicloud__security_posture
+        - multicloud__compliance_check
+        - finops__get_cost
+        - finops__breakdown
+        - finops__compare
+        - finops__get_actual_costs
+        - finops__compare_list_prices
+        - finops__gcp_list_prices
+      prompts: false
+      resources: false

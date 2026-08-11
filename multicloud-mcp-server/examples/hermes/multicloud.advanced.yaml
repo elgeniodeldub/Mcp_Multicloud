@@ -1,0 +1,11 @@
+server:
+  transport: stdio
+
+tool_exposure:
+  native_tools: true
+  provider_passthrough: true
+
+multicloud:
+  enabled: true
+
+providers: {}

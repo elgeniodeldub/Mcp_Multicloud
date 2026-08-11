@@ -1,0 +1,22 @@
+server:
+  transport: stdio
+
+tool_exposure:
+  native_tools: true
+  provider_passthrough: false
+
+multicloud:
+  enabled: true
+  tools:
+    - get_cost
+    - breakdown
+    - compare
+    - actual_costs
+    - list_price_comparison
+    - gcp_list_prices
+    - list_providers
+    - discover_resources
+    - security_posture
+    - compliance_checker
+
+providers: {}

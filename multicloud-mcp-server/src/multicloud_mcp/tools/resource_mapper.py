@@ -14,8 +14,10 @@ class ResourceMapperTool:
         return ToolInfo(
             name="multicloud__map_resource",
             description=(
-                "Map a cloud resource type from one provider to its equivalent in another. "
-                "Useful for migration planning and multicloud architecture design."
+                "Read-only mapping of an AWS or Azure resource type to its equivalent "
+                "service in the other provider. Use for migration planning, not resource "
+                "discovery or changes; returns an equivalent, confidence, and notes. "
+                "GCP resources are not supported by this mapper."
             ),
             input_schema={
                 "type": "object",
