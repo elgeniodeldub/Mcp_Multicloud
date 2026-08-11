@@ -16,6 +16,12 @@ def test_azure_provider_namespacing():
     assert provider._original_name("azure__list_vms") == "list_vms"
 
 
+def test_azure_provider_default_command_starts_mcp_stdio_server():
+    provider = AzureProvider()
+    assert provider.command == "npx"
+    assert provider.args == ["-y", "@azure/mcp@2.0.4", "server", "start"]
+
+
 def test_provider_health_initial_state():
     from multicloud_mcp.providers.base import ProviderHealth
 

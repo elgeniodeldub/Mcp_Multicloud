@@ -48,7 +48,10 @@ providers:
   azure:
     enabled: true
     command: "npx"
-    args: ["-y", "@azure/mcp@2.0.5"]
+    # The Azure MCP CLI requires the explicit server/start subcommands.
+    # Without them npx prints CLI help to stdout instead of speaking MCP.
+    # 2.0.5 currently crashes on Windows with 0xC00000FD; 2.0.4 is verified.
+    args: ["-y", "@azure/mcp@2.0.4", "server", "start"]
     env:
       AZURE_SUBSCRIPTION_ID: "${AZURE_SUBSCRIPTION_ID}"
     namespace: "azure"

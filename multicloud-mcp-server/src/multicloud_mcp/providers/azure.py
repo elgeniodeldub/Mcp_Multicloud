@@ -37,7 +37,7 @@ class AzureProvider(MCPProviderAdapter):
             name="azure",
             namespace="azure",
             command=command,
-            args=args or ["-y", "@azure/mcp@2.0.5"],
+            args=args or ["-y", "@azure/mcp@2.0.4", "server", "start"],
             env=env or {},
             timeout=timeout,
             max_concurrency=max_concurrency,
