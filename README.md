@@ -1,5 +1,7 @@
 # Multicloud MCP Server
 
+Maintained by **Carlos Razuri**.
+
 Unified Model Context Protocol (MCP) gateway for AWS and Azure with native FinOps, resource discovery, security posture, compliance readiness, resource mapping, health monitoring, and secure HTTP transport.
 
 ## Providers
@@ -92,6 +94,7 @@ python -m mypy --strict src
 - [Operations](docs/OPERATIONS.md)
 - [Development](docs/DEVELOPMENT.md)
 - [GCP list-price support](docs/gcp.md)
+- [Cloud installation manuals](docs/installation.md)
 
 ## License
 

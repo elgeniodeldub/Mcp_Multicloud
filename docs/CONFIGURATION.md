@@ -1,5 +1,8 @@
 # Configuration
 
+Maintained by **Carlos Razuri**. See the [cloud installation manuals](installation.md)
+for AWS, Azure, and GCP setup without committing credentials.
+
 Configuration uses Pydantic plus YAML/environment variables.
 
 ## Loading
