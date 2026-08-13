@@ -45,4 +45,12 @@ providers:
 No reactives el paquete externo predeterminado sin verificar primero su
 compatibilidad con el protocolo MCP y las dependencias actuales.
 
+## Manuales por nube
+
+Documentación mantenida por **Carlos Razuri**:
+
+- [AWS](installation-aws.md)
+- [Azure](installation-azure.md)
+- [GCP](installation-gcp.md)
+
 `stdio` continúa funcionando sin autenticación HTTP. Consulta [Seguridad HTTP](security.md) para TLS, auditoría, métricas y reverse proxies.

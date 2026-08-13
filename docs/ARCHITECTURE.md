@@ -16,7 +16,6 @@ MulticloudMCPServer
  +--> ProviderRouter
        +--> AWSProvider
        +--> AzureProvider
-       +--> GCP list-price adapter (Cloud Billing Catalog API)
 ```
 
 ## LLM responsibility
@@ -39,7 +38,3 @@ HTTP mode should be treated as a privileged gateway to cloud capabilities. The i
 ## Extension model
 
 To add a provider: implement the provider contract, add connection/discovery/invocation, register it, add health handling/tests, and extend native normalization only where useful.
-
-GCP list-price support is deliberately separate from the upstream MCP provider
-registry. It uses the read-only Cloud Billing Catalog API and is not a GCP
-resource provider or actual-cost integration.

@@ -1,5 +1,7 @@
 # Multicloud MCP Server
 
+Maintained by **Carlos Razuri**.
+
 This directory contains the Python implementation. The canonical project documentation lives at the repository root:
 
 - `../README.md`
@@ -39,3 +41,10 @@ Hermes Agent integration is documented in [docs/hermes.md](docs/hermes.md).
 GCP list-price support is available through `finops__gcp_list_prices`. It uses
 the Google Cloud Billing Catalog API only; it does not use BigQuery, billing
 exports, or actual-cost data. See [GCP support](docs/gcp.md).
+
+## Cloud installation manuals
+
+- [AWS](docs/installation-aws.md)
+- [Azure](docs/installation-azure.md)
+- [GCP](docs/installation-gcp.md)
+- [All cloud manuals](docs/installation.md)

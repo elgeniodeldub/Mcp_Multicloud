@@ -1,8 +1,5 @@
 # Configuration
 
-Maintained by **Carlos Razuri**. See the [cloud installation manuals](installation.md)
-for AWS, Azure, and GCP setup without committing credentials.
-
 Configuration uses Pydantic plus YAML/environment variables.
 
 ## Loading
@@ -51,17 +48,3 @@ security:
 Provider configuration includes `enabled`, `command`, `args`, `env`, `namespace`, `health_check_interval`, `timeout`, and `description`.
 
 Namespaces cannot contain `__`.
-
-## GCP list prices
-
-GCP list-price lookup is enabled as a native FinOps tool and does not require a
-GCP MCP provider process. Set the Cloud Billing Catalog API key outside the
-configuration file:
-
-```powershell
-$env:GCP_BILLING_API_KEY="your-catalog-api-key"
-```
-
-The key is used only by `finops__gcp_list_prices`. This integration is limited
-to public SKU/list prices; it does not provide actual usage cost and does not
-use BigQuery or Cloud Billing exports.

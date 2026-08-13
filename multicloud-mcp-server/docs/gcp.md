@@ -1,16 +1,16 @@
-# GCP list-price support
+# GCP support
 
 The server supports a first read-only GCP FinOps integration for public list
 prices only.
 
 ## Scope
 
-`finops__gcp_list_prices` reads the Google Cloud Billing Catalog API and
+`finops__gcp_list_prices` reads the Google Cloud Cloud Billing Catalog API and
 returns public SKU pricing. It does not query actual usage or invoiced spend,
 and it does not use BigQuery, Cloud Billing exports, discounts, commitments,
 credits, taxes, or amortization.
 
-Configure the API key in the process environment:
+Configure an API key in the process environment:
 
 ```powershell
 $env:GCP_BILLING_API_KEY="your-catalog-api-key"
@@ -19,7 +19,7 @@ $env:GCP_BILLING_API_KEY="your-catalog-api-key"
 The key is never stored in YAML or returned by the tool. The Cloud Billing API
 must be enabled in the Google Cloud project associated with the key.
 
-Example arguments:
+Example MCP arguments:
 
 ```json
 {

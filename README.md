@@ -1,7 +1,5 @@
 # Multicloud MCP Server
 
-Maintained by **Carlos Razuri**.
-
 Unified Model Context Protocol (MCP) gateway for AWS and Azure with native FinOps, resource discovery, security posture, compliance readiness, resource mapping, health monitoring, and secure HTTP transport.
 
 ## Providers
@@ -10,7 +8,7 @@ Unified Model Context Protocol (MCP) gateway for AWS and Azure with native FinOp
 |---|---|
 | AWS | Supported |
 | Azure | Supported |
-| GCP | List-price catalog supported |
+| GCP | Planned |
 
 ## Native MCP tools
 
@@ -18,7 +16,6 @@ Unified Model Context Protocol (MCP) gateway for AWS and Azure with native FinOp
 |---|---|
 | `finops__get_actual_costs` | Actual non-amortized AWS/Azure billing data |
 | `finops__compare_list_prices` | Illustrative public list-price comparison |
-| `finops__gcp_list_prices` | Native GCP public SKU/list-price lookup |
 | `multicloud__map_resource` | AWS/Azure service mapping |
 | `multicloud__list_providers` | Provider status and health |
 | `multicloud__discover_resources` | Cross-cloud resource discovery |
@@ -36,11 +33,6 @@ The policy layer complements rather than replaces AWS IAM and Azure RBAC.
 `finops__get_actual_costs` queries AWS Cost Explorer using `UnblendedCost` and Azure Cost Management using `PreTaxCost` / `ActualCost`. The result is labeled `actual_non_amortized`.
 
 `finops__compare_list_prices` remains an illustrative estimator and does not represent invoiced, discounted, reserved, committed, credited, amortized, tax-adjusted, or privately negotiated spend.
-
-`finops__gcp_list_prices` queries the Google Cloud Billing Catalog API for
-public SKU pricing only. It does not query actual GCP spend, BigQuery, billing
-exports, discounts, commitments, credits, taxes, or amortization. Configure
-`GCP_BILLING_API_KEY` in the process environment; never store it in YAML.
 
 ## Architecture
 
@@ -93,8 +85,7 @@ python -m mypy --strict src
 - [Security](docs/SECURITY.md)
 - [Operations](docs/OPERATIONS.md)
 - [Development](docs/DEVELOPMENT.md)
-- [GCP list-price support](docs/gcp.md)
-- [Cloud installation manuals](docs/installation.md)
+- [Hermes Agent integration](docs/hermes.md)
 
 ## License
 
