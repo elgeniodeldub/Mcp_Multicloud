@@ -18,6 +18,8 @@ class ExecutionContext:
     transport: str = "stdio"
     caller: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
+    # OAuth scopes of the authenticated caller; None when no token-based auth applies.
+    scopes: frozenset[str] | None = None
 
     @classmethod
     def from_arguments(
@@ -26,15 +28,22 @@ class ExecutionContext:
         arguments: dict[str, Any],
         transport: str,
         timeout_seconds: float | None = None,
+        caller: str | None = None,
+        scopes: frozenset[str] | None = None,
     ) -> ExecutionContext:
         """Build context from safe, tool-independent request fields."""
         providers_value = arguments.get("providers", ())
-        providers = tuple(str(value) for value in providers_value) if isinstance(providers_value, list) else ()
+        providers = (
+            tuple(str(value) for value in providers_value)
+            if isinstance(providers_value, list)
+            else ()
+        )
         metadata = arguments.get("metadata", {})
         safe_metadata = {
             str(key): str(value)
             for key, value in metadata.items()
-            if isinstance(metadata, dict) and str(key).lower() not in {"token", "secret", "password", "authorization"}
+            if isinstance(metadata, dict)
+            and str(key).lower() not in {"token", "secret", "password", "authorization"}
         }
         return cls(
             request_id=request_id,
@@ -43,5 +52,7 @@ class ExecutionContext:
             region=str(arguments["region"]) if arguments.get("region") else None,
             account=str(arguments["account"]) if arguments.get("account") else None,
             transport=transport,
+            caller=caller,
             metadata=safe_metadata,
+            scopes=scopes,
         )

@@ -80,9 +80,23 @@ class MCPProviderAdapter(ProviderAdapter):
                         ToolSafety.MUTATING
                         if any(
                             verb in tool.name.lower().split("__")
-                            for verb in ("create", "delete", "remove", "terminate", "update", "modify", "start", "stop", "deploy", "execute")
+                            for verb in (
+                                "create",
+                                "delete",
+                                "remove",
+                                "terminate",
+                                "update",
+                                "modify",
+                                "start",
+                                "stop",
+                                "deploy",
+                                "execute",
+                            )
                         )
                         else ToolSafety.READ_ONLY
+                    ),
+                    read_only_hint=getattr(
+                        getattr(tool, "annotations", None), "readOnlyHint", None
                     ),
                 )
                 for tool in response.tools

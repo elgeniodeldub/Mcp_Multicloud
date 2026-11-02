@@ -5,6 +5,7 @@
 - [Tools](TOOLS.md)
 - [Configuration](CONFIGURATION.md)
 - [Security](SECURITY.md)
+- [Least-privilege cloud identities](least-privilege.md)
 - [Operations](OPERATIONS.md)
 - [Development](DEVELOPMENT.md)
 - [GCP list-price support](gcp.md)

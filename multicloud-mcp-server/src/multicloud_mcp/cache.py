@@ -73,3 +73,36 @@ class ToolsCache:
             "expired_entries": expired,
             "valid_entries": total - expired,
         }
+
+
+class RedisJSONCache:
+    """Shared JSON cache in Redis for multi-replica deployments.
+
+    Values are JSON strings (never pickle), and every Redis error degrades to a
+    cache miss so Redis can never break a request.
+    """
+
+    def __init__(self, client: Any, prefix: str = "multicloud-mcp:cache") -> None:
+        self.client = client
+        self.prefix = prefix
+        self._logger = logger.bind(component="redis_cache")
+
+    @classmethod
+    def from_url(cls, url: str) -> RedisJSONCache:
+        import redis.asyncio as redis
+
+        return cls(redis.from_url(url, socket_timeout=0.5, decode_responses=True))
+
+    async def get(self, key: str) -> str | None:
+        try:
+            value = await self.client.get(f"{self.prefix}:{key}")
+        except Exception as exc:
+            self._logger.warning("redis_cache_get_failed", error=type(exc).__name__)
+            return None
+        return str(value) if value is not None else None
+
+    async def set(self, key: str, value: str, ttl: float) -> None:
+        try:
+            await self.client.set(f"{self.prefix}:{key}", value, ex=max(1, int(ttl)))
+        except Exception as exc:
+            self._logger.warning("redis_cache_set_failed", error=type(exc).__name__)

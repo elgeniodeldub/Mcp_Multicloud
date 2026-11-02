@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from decimal import Decimal
 
 import structlog
 
-from multicloud_mcp.cache import ToolsCache
+from multicloud_mcp.cache import RedisJSONCache, ToolsCache
 from multicloud_mcp.finops.enums import FinOpsDimension
 from multicloud_mcp.finops.exceptions import FinOpsProviderUnavailableError
 from multicloud_mcp.finops.models import FinOpsCostResult, FinOpsQuery
@@ -43,12 +44,14 @@ class FinOpsCostService:
         providers: Mapping[str, FinOpsProvider] | None = None,
         cache: ToolsCache | None = None,
         cache_ttl: float = 300.0,
+        shared_cache: RedisJSONCache | None = None,
     ) -> None:
         self.providers: dict[str, FinOpsProvider] = dict(
             providers or {"aws": AWSFinOpsProvider(), "azure": AzureFinOpsProvider()}
         )
         self.cache = cache or ToolsCache(default_ttl=cache_ttl)
         self.cache_ttl = cache_ttl
+        self.shared_cache = shared_cache
 
     async def query(self, query: FinOpsQuery) -> CostQueryResponse:
         """Query selected providers concurrently and preserve partial results."""
@@ -60,6 +63,16 @@ class FinOpsCostService:
                 cache_hit=True,
                 duration_ms=0.0,
             )
+        if self.shared_cache is not None:
+            shared = await self.shared_cache.get(query.cache_key)
+            if shared is not None:
+                restored = self._from_json(shared)
+                self.cache.set(query.cache_key, restored, ttl=self.cache_ttl)
+                return CostQueryResponse(
+                    results=restored.results,
+                    providers_failed=restored.providers_failed,
+                    cache_hit=True,
+                )
         selected = query.providers or list(self.providers)
         unknown = [provider for provider in selected if provider not in self.providers]
         if unknown:
@@ -87,6 +100,9 @@ class FinOpsCostService:
             duration_ms=(time.perf_counter() - started) * 1000,
         )
         self.cache.set(query.cache_key, outcome, ttl=self.cache_ttl)
+        if self.shared_cache is not None and not failed:
+            # Partial results stay local so one replica's outage is not shared.
+            await self.shared_cache.set(query.cache_key, self._to_json(outcome), self.cache_ttl)
         logger.info(
             "finops_query_completed",
             providers=selected,
@@ -99,6 +115,23 @@ class FinOpsCostService:
             number_of_rows=len(results),
         )
         return outcome
+
+    @staticmethod
+    def _to_json(response: CostQueryResponse) -> str:
+        return json.dumps(
+            {
+                "results": [result.model_dump(mode="json") for result in response.results],
+                "providers_failed": response.providers_failed,
+            }
+        )
+
+    @staticmethod
+    def _from_json(value: str) -> CostQueryResponse:
+        data = json.loads(value)
+        return CostQueryResponse(
+            results=[FinOpsCostResult.model_validate(item) for item in data["results"]],
+            providers_failed=list(data.get("providers_failed", [])),
+        )
 
     @staticmethod
     async def _query_provider(

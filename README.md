@@ -19,6 +19,10 @@ Unified Model Context Protocol (MCP) gateway for AWS and Azure with native FinOp
 | `finops__get_actual_costs` | Actual non-amortized AWS/Azure billing data |
 | `finops__compare_list_prices` | Illustrative public list-price comparison |
 | `finops__gcp_list_prices` | Native GCP public SKU/list-price lookup |
+| `finops__forecast` | AWS/Azure spend forecast to a future date |
+| `finops__anomalies` | Cost anomalies (AWS Anomaly Detection, Azure statistical baseline) |
+| `finops__budgets` | Budget limit, actual, forecast, and alerts |
+| `finops__cost_by_tag` | Spend allocation by tag value |
 | `multicloud__map_resource` | AWS/Azure service mapping |
 | `multicloud__list_providers` | Provider status and health |
 | `multicloud__discover_resources` | Cross-cloud resource discovery |
@@ -27,7 +31,7 @@ Unified Model Context Protocol (MCP) gateway for AWS and Azure with native FinOp
 
 ## Security
 
-HTTP mode includes localhost binding by default, optional Bearer authentication, restrictive CORS, request-size limits, rate limiting, request IDs, audit logging, redaction, security headers, safe error responses, and `allow_all` / `read_only` tool policies.
+HTTP mode includes localhost binding by default (and refuses remote binding without authentication), static Bearer or OAuth 2.1 / OIDC JWT authentication with per-tool scopes, trusted-proxy handling, restrictive CORS, request-size limits, per-identity rate limiting (in-memory or Redis), request IDs, audit logging, redaction, security headers, safe error responses, and `allow_all` / default-deny `read_only` tool policies. See [least-privilege identities](docs/least-privilege.md).
 
 The policy layer complements rather than replaces AWS IAM and Azure RBAC.
 

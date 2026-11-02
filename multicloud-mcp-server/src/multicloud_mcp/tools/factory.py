@@ -10,6 +10,13 @@ from multicloud_mcp.finops.tools.breakdown import FinOpsBreakdownTool
 from multicloud_mcp.finops.tools.compare import FinOpsCompareTool
 from multicloud_mcp.finops.tools.gcp_list_prices import GCPListPricesTool
 from multicloud_mcp.finops.tools.get_cost import FinOpsGetCostTool
+from multicloud_mcp.finops.tools.insights import (
+    FinOpsAnomaliesTool,
+    FinOpsBudgetsTool,
+    FinOpsCostByTagTool,
+    FinOpsForecastTool,
+    FinOpsInsightsService,
+)
 from multicloud_mcp.health import HealthMonitor
 from multicloud_mcp.providers.base import ToolInfo
 from multicloud_mcp.router import ProviderRouter
@@ -31,10 +38,19 @@ class NativeToolContext:
         router: ProviderRouter,
         health_monitor: HealthMonitor,
         finops_service: FinOpsCostService,
+        insights_service: FinOpsInsightsService | None = None,
     ) -> None:
         self.router = router
         self.health_monitor = health_monitor
         self.finops_service = finops_service
+        self._insights_service = insights_service
+
+    @property
+    def insights_service(self) -> FinOpsInsightsService:
+        # Built lazily so registries without insight tools never create cloud clients.
+        if self._insights_service is None:
+            self._insights_service = FinOpsInsightsService()
+        return self._insights_service
 
 
 ToolBuilder = Callable[[NativeToolContext], RegisteredNativeTool]
@@ -61,6 +77,14 @@ def _finops_breakdown(context: NativeToolContext) -> RegisteredNativeTool:
 def _finops_compare(context: NativeToolContext) -> RegisteredNativeTool:
     tool = FinOpsCompareTool(context.finops_service)
     return RegisteredNativeTool(tool.get_tool_info(), tool.execute)
+
+
+def _insight(tool_class: Any) -> ToolBuilder:
+    def build(context: NativeToolContext) -> RegisteredNativeTool:
+        tool = tool_class(context.insights_service)
+        return RegisteredNativeTool(tool.get_tool_info(), tool.execute)
+
+    return build
 
 
 def _list_providers(context: NativeToolContext) -> RegisteredNativeTool:
@@ -107,6 +131,10 @@ def build_native_tool_registry(
         "get_cost": _finops_get_cost,
         "breakdown": _finops_breakdown,
         "compare": _finops_compare,
+        "forecast": _insight(FinOpsForecastTool),
+        "anomalies": _insight(FinOpsAnomaliesTool),
+        "budgets": _insight(FinOpsBudgetsTool),
+        "cost_by_tag": _insight(FinOpsCostByTagTool),
         "actual_costs": _no_context(ActualCostsTool()),
         "list_price_comparison": _no_context(ListPriceComparisonTool()),
         "gcp_list_prices": _no_context(GCPListPricesTool()),

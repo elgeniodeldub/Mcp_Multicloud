@@ -45,9 +45,7 @@ class GCPListPriceProvider:
         read only from ``GCP_BILLING_API_KEY`` unless injected for testing.
         """
         if not self._api_key:
-            raise FinOpsQueryError(
-                "GCP_BILLING_API_KEY is required for GCP public list prices"
-            )
+            raise FinOpsQueryError("GCP_BILLING_API_KEY is required for GCP public list prices")
         parent = service_id if service_id.startswith("services/") else f"services/{service_id}"
         params: dict[str, str | int] = {
             "key": self._api_key,
@@ -83,7 +81,9 @@ class GCPListPriceProvider:
                 rates.append(
                     {
                         "start_usage_amount": str(tier.get("startUsageAmount", 0)),
-                        "unit_price": str(Decimal(str(units)) + Decimal(str(nanos)) / Decimal("1000000000")),
+                        "unit_price": str(
+                            Decimal(str(units)) + Decimal(str(nanos)) / Decimal("1000000000")
+                        ),
                     }
                 )
             pricing.append(

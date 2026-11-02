@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import ipaddress
 import json
+import os
 import signal
 import sys
 import uuid
@@ -23,9 +25,11 @@ from starlette.routing import Route
 
 from multicloud_mcp.application.context import ExecutionContext
 from multicloud_mcp.application.executor import ApplicationToolExecutor
+from multicloud_mcp.cache import RedisJSONCache
 from multicloud_mcp.config import Settings
 from multicloud_mcp.finops.services.cost_service import FinOpsCostService
 from multicloud_mcp.health import HealthMonitor
+from multicloud_mcp.observability import ToolMetrics, Tracer
 from multicloud_mcp.providers.base import ProviderAdapter, ToolInfo
 from multicloud_mcp.providers.registry import (
     DisabledProviderError,
@@ -34,9 +38,18 @@ from multicloud_mcp.providers.registry import (
 )
 from multicloud_mcp.router import ProviderRouter
 from multicloud_mcp.security import ToolSecurityPolicy
-from multicloud_mcp.security.auth import BearerAuthenticator
-from multicloud_mcp.security.middleware import SecurityMiddleware
-from multicloud_mcp.security.rate_limit import InMemoryRateLimiter
+from multicloud_mcp.security.auth import (
+    Authenticator,
+    BearerAuthenticator,
+    OIDCAuthenticator,
+    Principal,
+)
+from multicloud_mcp.security.middleware import SecurityMiddleware, parse_networks
+from multicloud_mcp.security.rate_limit import (
+    InMemoryRateLimiter,
+    RateLimiter,
+    RedisRateLimiter,
+)
 from multicloud_mcp.tools.factory import NativeToolContext, build_native_tool_registry
 
 logger = structlog.get_logger()
@@ -50,15 +63,29 @@ class MulticloudMCPServer:
         self.router = ProviderRouter()
         self.health_monitor = HealthMonitor(check_interval=30.0)
         self.server = Server(settings.server.name)
-        self.security_policy = ToolSecurityPolicy(settings.security.tool_policy.mode)
-        self.finops_service = FinOpsCostService()
+        policy = settings.security.tool_policy
+        self.security_policy = ToolSecurityPolicy(
+            policy.mode, policy.allowed_tools, policy.trust_read_only_hints
+        )
+        self.finops_service = FinOpsCostService(
+            cache_ttl=settings.cache.ttl_seconds, shared_cache=self._shared_cache()
+        )
+        self.tool_metrics = ToolMetrics()
+        self.tracer = Tracer(
+            settings.observability.tracing_enabled, settings.observability.service_name
+        )
         self.provider_registry = build_provider_registry()
         self.native_tools = build_native_tool_registry(
             NativeToolContext(self.router, self.health_monitor, self.finops_service),
             settings.multicloud.tools,
         )
         self.tool_executor = ApplicationToolExecutor(
-            self.native_tools, self.router, self.security_policy
+            self.native_tools,
+            self.router,
+            self.security_policy,
+            tool_scopes=settings.security.authentication.tool_scopes,
+            metrics=self.tool_metrics,
+            tracer=self.tracer,
         )
         self.http_metrics: dict[str, int] = {
             "requests": 0,
@@ -69,6 +96,12 @@ class MulticloudMCPServer:
             "tool_policy_rejections": 0,
         }
         self._setup_handlers()
+
+    def _shared_cache(self) -> RedisJSONCache | None:
+        cache = self.settings.cache
+        if cache.backend != "redis":
+            return None
+        return RedisJSONCache.from_url(_required_env(cache.redis_url_env, "cache.backend=redis"))
 
     def _setup_handlers(self) -> None:
         """Register MCP protocol handlers."""
@@ -95,9 +128,7 @@ class MulticloudMCPServer:
         @self.server.call_tool()  # type: ignore[untyped-decorator]
         async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             """Route tool call to appropriate provider."""
-            context = ExecutionContext.from_arguments(
-                str(uuid.uuid4()), arguments, "stdio"
-            )
+            context = ExecutionContext.from_arguments(str(uuid.uuid4()), arguments, "stdio")
             if not self._tool_exposed(name):
                 return [TextContent(type="text", text=json.dumps({"error": "tool_not_found"}))]
             result = await self.tool_executor.execute(name, arguments, context)
@@ -207,7 +238,10 @@ class MulticloudMCPServer:
 
                 if method == "tools/list":
                     tools = await self.router.refresh_tools()
-                    if self.settings.multicloud.enabled and self.settings.tool_exposure.native_tools:
+                    if (
+                        self.settings.multicloud.enabled
+                        and self.settings.tool_exposure.native_tools
+                    ):
                         tools.extend(self.native_tools.list_tools())
                     tools = [tool for tool in tools if self._tool_exposed(tool.name)]
                     return JSONResponse(
@@ -235,8 +269,13 @@ class MulticloudMCPServer:
                             body.get("id"), -32602, "invalid_request", 400, request_id
                         )
 
+                    principal: Principal | None = getattr(request.state, "principal", None)
                     context = ExecutionContext.from_arguments(
-                        request_id, arguments, "http"
+                        request_id,
+                        arguments,
+                        "http",
+                        caller=principal.subject if principal else None,
+                        scopes=principal.scopes if principal else None,
                     )
                     if not self._tool_exposed(tool_name):
                         return self._jsonrpc_error(
@@ -246,9 +285,17 @@ class MulticloudMCPServer:
                     self.http_metrics["tool_calls"] += 1
                     if result.errors:
                         error = result.errors[0]
-                        status = 403 if error.code == "tool_blocked_by_policy" else 400
+                        status = (
+                            403
+                            if error.code in {"tool_blocked_by_policy", "insufficient_scope"}
+                            else 400
+                        )
                         return self._jsonrpc_error(
-                            body.get("id"), -32010, error.code, status, request_id,
+                            body.get("id"),
+                            -32010,
+                            error.code,
+                            status,
+                            request_id,
                             {"message": error.message},
                         )
                     payload = result.legacy_data()
@@ -260,7 +307,9 @@ class MulticloudMCPServer:
                         {
                             "jsonrpc": "2.0",
                             "id": body.get("id"),
-                            "result": {"content": [{"type": "text", "text": json.dumps(payload, indent=2)}]},
+                            "result": {
+                                "content": [{"type": "text", "text": json.dumps(payload, indent=2)}]
+                            },
                         }
                     )
 
@@ -320,6 +369,7 @@ class MulticloudMCPServer:
                 f"multicloud_tool_calls_total {self.http_metrics['tool_calls']}",
                 "# TYPE multicloud_tool_policy_rejections_total counter",
                 f"multicloud_tool_policy_rejections_total {self.http_metrics['tool_policy_rejections']}",
+                *self.tool_metrics.render(),
             ]
             return PlainTextResponse("\n".join(lines))
 
@@ -334,14 +384,30 @@ class MulticloudMCPServer:
             raise ValueError(
                 "security.cors.allowed_origins cannot contain '*' when authentication is enabled"
             )
-        authenticator = BearerAuthenticator(
-            security.authentication.enabled, security.authentication.api_key_env
-        )
-        limiter = (
-            InMemoryRateLimiter(security.rate_limit.requests_per_minute)
-            if security.rate_limit.enabled
-            else None
-        )
+        auth = security.authentication
+        authenticator: Authenticator
+        if auth.enabled and auth.type == "oidc":
+            authenticator = OIDCAuthenticator(
+                issuer=auth.oidc.issuer,
+                audience=auth.oidc.audience,
+                jwks_url=auth.oidc.jwks_url,
+                required_scopes=auth.oidc.required_scopes,
+                scope_claim=auth.oidc.scope_claim,
+                leeway_seconds=auth.oidc.leeway_seconds,
+            )
+        else:
+            authenticator = BearerAuthenticator(auth.enabled, auth.api_key_env)
+        limiter: RateLimiter | None = None
+        if security.rate_limit.enabled:
+            rate = security.rate_limit
+            limiter = (
+                RedisRateLimiter.from_url(
+                    _required_env(rate.redis_url_env, "rate_limit.backend=redis"),
+                    rate.requests_per_minute,
+                )
+                if rate.backend == "redis"
+                else InMemoryRateLimiter(rate.requests_per_minute)
+            )
         app = Starlette(routes=routes)
         app.add_middleware(
             SecurityMiddleware,
@@ -350,6 +416,8 @@ class MulticloudMCPServer:
             max_request_size=security.max_request_size_bytes,
             rate_limiter=limiter,
             metrics=self.http_metrics,
+            trusted_proxies=parse_networks(security.trusted_proxies),
+            strict_transport_security=security.hsts,
         )
         if security.cors.enabled:
             app.add_middleware(
@@ -386,26 +454,60 @@ class MulticloudMCPServer:
             provider = name.split("__", 1)[0]
             if exposure.provider_allowlist and provider not in exposure.provider_allowlist:
                 return False
-        if (name.startswith("multicloud__") or name.startswith("finops__")) and not exposure.native_tools:
+        if (
+            name.startswith("multicloud__") or name.startswith("finops__")
+        ) and not exposure.native_tools:
             return False
         if exposure.tool_allowlist and name not in exposure.tool_allowlist:
             return False
         return name not in exposure.tool_denylist
 
+    def validate_http_exposure(self) -> None:
+        """Refuse to serve unauthenticated HTTP on anything but a loopback address."""
+        host = self.settings.server.http.host
+        security = self.settings.security
+        if security.authentication.enabled or security.allow_unauthenticated_remote:
+            return
+        if host == "localhost" or _is_loopback(host):
+            return
+        raise ValueError(
+            f"Refusing to listen on {host} without authentication. Enable "
+            "security.authentication or set security.allow_unauthenticated_remote: true."
+        )
+
     async def run_http(self) -> None:
         """Run server with secured HTTP transport."""
+        self.validate_http_exposure()
         await self.initialize()
         app = self.create_http_app()
 
         config = self.settings.server.http
         logger.info("http_server_starting", host=config.host, port=config.port)
 
-        # Graceful shutdown
-        loop = asyncio.get_event_loop()
+        # Graceful shutdown. Windows event loops may not support signal handlers.
+        loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.shutdown()))
+            try:
+                loop.add_signal_handler(sig, lambda: asyncio.create_task(self.shutdown()))
+            except (NotImplementedError, RuntimeError):
+                break
 
-        uvicorn.run(app, host=config.host, port=config.port)
+        uvicorn_config = uvicorn.Config(app, host=config.host, port=config.port)
+        await uvicorn.Server(uvicorn_config).serve()
+
+
+def _is_loopback(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _required_env(name: str, feature: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise ValueError(f"{feature} requires environment variable '{name}'")
+    return value
 
 
 def main() -> None:

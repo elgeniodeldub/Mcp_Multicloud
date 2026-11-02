@@ -22,11 +22,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apk add --no-cache nodejs npm curl
+# gcompat/libstdc++/icu-libs let the glibc-built Azure MCP binary run on musl.
+RUN apk add --no-cache nodejs npm curl gcompat libstdc++ icu-libs
+
+# Preinstall the pinned Azure MCP server at build time instead of letting `npx -y`
+# download it on every start. npm verifies each tarball against the registry's
+# sha512 integrity; bump AZURE_MCP_VERSION together with config.yaml.
+ARG AZURE_MCP_VERSION=2.0.4
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false     NPM_CONFIG_FUND=false     PATH="/opt/azure-mcp/node_modules/.bin:${PATH}"
+RUN mkdir -p /opt/azure-mcp     && npm install --prefix /opt/azure-mcp --no-audit --omit=dev         "@azure/mcp@${AZURE_MCP_VERSION}"     && npm cache clean --force     && azmcp --version
 
 COPY --from=builder /dist/*.whl /tmp/
 RUN python -m pip install /tmp/*.whl \
     && rm -f /tmp/*.whl
+
+COPY docker/config.container.yaml /etc/multicloud-mcp/config.yaml
 
 RUN adduser -D -u 1000 mcp \
     && chown -R mcp:mcp /app

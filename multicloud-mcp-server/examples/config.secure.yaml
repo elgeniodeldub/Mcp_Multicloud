@@ -19,6 +19,20 @@ security:
     requests_per_minute: 60
   tool_policy:
     mode: read_only
+    # Passthrough tools are denied unless allowlisted or annotated readOnlyHint upstream.
+    allowed_tools: []
+    trust_read_only_hints: true
+  # Reverse proxies whose X-Forwarded-For is trusted, e.g. ["10.0.0.0/8"].
+  trusted_proxies: []
+  hsts: false
+  # To use OAuth 2.1 / OIDC instead of a static key:
+  # authentication:
+  #   enabled: true
+  #   type: oidc
+  #   oidc:
+  #     issuer: "https://login.microsoftonline.com/<tenant-id>/v2.0"
+  #     audience: "api://multicloud-mcp"
+  #     scope_claim: scp
 
 tool_exposure:
   native_tools: true
