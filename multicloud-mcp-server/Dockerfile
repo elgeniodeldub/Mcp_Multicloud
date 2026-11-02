@@ -23,7 +23,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # gcompat/libstdc++/icu-libs let the glibc-built Azure MCP binary run on musl.
-RUN apk add --no-cache nodejs npm curl gcompat libstdc++ icu-libs
+# Apply Alpine security fixes released after the pinned base image digest.
+RUN apk upgrade --no-cache \n    && apk add --no-cache nodejs npm curl gcompat libstdc++ icu-libs
 
 # Preinstall the pinned Azure MCP server at build time instead of letting `npx -y`
 # download it on every start. npm verifies each tarball against the registry's
