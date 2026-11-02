@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0] - 2026-11-02
+
+### Added
+- FinOps tools: `finops__forecast`, `finops__anomalies`, `finops__budgets`, `finops__cost_by_tag` for AWS and Azure.
+- OAuth 2.1 / OIDC JWT authentication with per-tool scopes (`security.authentication.type: oidc`).
+- Trusted reverse proxies (`security.trusted_proxies`), optional HSTS, Content-Security-Policy header.
+- Redis backends for rate limiting and the FinOps cache (`redis` extra), both failing open.
+- Per-tool execution counters and latency histograms on `/metrics`; optional OpenTelemetry tracing (`otel` extra).
+- Container image preinstalls the pinned Azure MCP server; default container config at `/etc/multicloud-mcp/config.yaml`.
+- CI smoke test of the pinned and latest Azure MCP releases on Linux and Windows.
+- Release images pushed to GHCR, signed with cosign, with a signed SBOM attestation.
+- Least-privilege IAM/RBAC guide.
+
+### Changed
+- `read_only` tool policy is now default-deny for provider passthrough tools: they need an allowlist entry or an upstream `readOnlyHint`, and command-like arguments are checked for mutating verbs.
+- HTTP refuses to bind a non-loopback address without authentication unless `security.allow_unauthenticated_remote` is set.
+- Rate limiting is keyed by authenticated subject when available.
+- Package version is the single source for the server version.
+
 ## [0.1.0] - 2026-08-10
 
 ### Added

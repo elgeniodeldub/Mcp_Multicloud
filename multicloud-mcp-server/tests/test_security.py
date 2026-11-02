@@ -119,9 +119,11 @@ async def test_rate_limit_returns_retry_after(monkeypatch) -> None:
 
 
 def test_read_only_policy_blocks_provider_mutations_but_allows_native_tools() -> None:
-    policy = ToolSecurityPolicy("read_only")
+    policy = ToolSecurityPolicy("read_only", allowed_tools=["aws__ec2__describe_*"])
     policy.authorize_tool("aws__ec2__describe_instances")
     policy.authorize_tool("finops__get_actual_costs")
+    with pytest.raises(ToolBlockedError):
+        policy.authorize_tool("aws__ec2__get_console_output")
     with pytest.raises(ToolBlockedError):
         policy.authorize_tool("aws__ec2__terminate_instances")
     with pytest.raises(ToolBlockedError):

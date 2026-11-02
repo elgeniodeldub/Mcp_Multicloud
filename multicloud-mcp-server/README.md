@@ -38,4 +38,4 @@ The live FinOps architecture is documented in [docs/finops.md](docs/finops.md).
 Hermes Agent integration is documented in [docs/hermes.md](docs/hermes.md).
 GCP list-price support is available through `finops__gcp_list_prices`. It uses
 the Google Cloud Billing Catalog API only; it does not use BigQuery, billing
-exports, or actual-cost data. See [GCP support](docs/gcp.md).
+exports, or actual-cost data. See [GCP support](../docs/gcp.md).

@@ -21,33 +21,34 @@ async def test_external_stdio_client_initializes_discovers_and_calls_native_tool
         env={"PYTHONPATH": str(project / "src")},
     )
 
-    async with stdio_client(server) as (read_stream, write_stream), ClientSession(
-        read_stream, write_stream
-    ) as session:
-            await session.initialize()
-            tools = await session.list_tools()
-            names = {tool.name for tool in tools.tools}
-            assert "multicloud__list_providers" in names
-            assert "finops__get_cost" in names
-            assert "finops__gcp_list_prices" in names
-            assert "aws__ec2__describe_instances" not in names
+    async with (
+        stdio_client(server) as (read_stream, write_stream),
+        ClientSession(read_stream, write_stream) as session,
+    ):
+        await session.initialize()
+        tools = await session.list_tools()
+        names = {tool.name for tool in tools.tools}
+        assert "multicloud__list_providers" in names
+        assert "finops__get_cost" in names
+        assert "finops__gcp_list_prices" in names
+        assert "aws__ec2__describe_instances" not in names
 
-            result = await session.call_tool(
-                "finops__compare_list_prices",
-                {
-                    "service_type": "compute",
-                    "region_aws": "us-east-1",
-                    "region_azure": "eastus",
-                    "specs": {"vcpu": 2, "memory_gb": 4},
-                },
-            )
-            assert result.content
-            payload = json.loads(result.content[0].text)
-            assert isinstance(payload, dict)
+        result = await session.call_tool(
+            "finops__compare_list_prices",
+            {
+                "service_type": "compute",
+                "region_aws": "us-east-1",
+                "region_azure": "eastus",
+                "specs": {"vcpu": 2, "memory_gb": 4},
+            },
+        )
+        assert result.content
+        payload = json.loads(result.content[0].text)
+        assert isinstance(payload, dict)
 
-            gcp_result = await session.call_tool(
-                "finops__gcp_list_prices", {"service_id": "service-test"}
-            )
-            assert gcp_result.content
-            error_payload = json.loads(gcp_result.content[0].text)
-            assert error_payload["error"] == "invalid_request"
+        gcp_result = await session.call_tool(
+            "finops__gcp_list_prices", {"service_id": "service-test"}
+        )
+        assert gcp_result.content
+        error_payload = json.loads(gcp_result.content[0].text)
+        assert error_payload["error"] == "invalid_request"

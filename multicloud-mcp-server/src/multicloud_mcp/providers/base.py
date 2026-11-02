@@ -42,6 +42,7 @@ class ToolInfo:
     provider: str
     namespace: str
     safety: ToolSafety = ToolSafety.READ_ONLY
+    read_only_hint: bool | None = None
 
 
 class ProviderAdapter(ABC):

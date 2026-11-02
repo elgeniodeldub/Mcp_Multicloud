@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multicloud-mcp-server"
-version = "0.1.0"
-description = "Unified Multicloud MCP Server for AWS and Azure â€” a proxy aggregator that unifies official cloud MCP servers under a single namespace."
+version = "0.2.0"
+description = "Unified Multicloud MCP Server for AWS and Azure: a proxy aggregator that unifies official cloud MCP servers under a single namespace, with native FinOps tools."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
@@ -37,9 +37,15 @@ dependencies = [
     "tenacity>=8.0.0",
     "starlette>=0.37.0",
     "uvicorn[standard]>=0.29.0",
+    "pyjwt[crypto]>=2.10.0",
 ]
 
 [project.optional-dependencies]
+redis = ["redis>=5.2.0"]
+otel = [
+    "opentelemetry-sdk>=1.30.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.30.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",

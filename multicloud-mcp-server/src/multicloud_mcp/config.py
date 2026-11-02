@@ -12,6 +12,8 @@ import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from multicloud_mcp import __version__
+
 
 def resolve_env_vars(obj: Any) -> Any:
     """Recursively resolve ${VAR} and ${VAR:-default} patterns in config."""
@@ -68,6 +70,10 @@ class MulticloudToolsConfig(BaseModel):
             "get_cost",
             "breakdown",
             "compare",
+            "forecast",
+            "anomalies",
+            "budgets",
+            "cost_by_tag",
             "resource_mapper",
             "list_providers",
             "discover_resources",
@@ -94,20 +100,55 @@ class HttpConfig(BaseModel):
     port: int = 8080
 
 
+class OIDCConfig(BaseModel):
+    """OAuth 2.1 / OpenID Connect access-token validation settings."""
+
+    issuer: str = ""
+    audience: str = ""
+    jwks_url: str | None = None
+    required_scopes: list[str] = Field(default_factory=list)
+    scope_claim: str = "scope"
+    leeway_seconds: int = Field(default=30, ge=0, le=300)
+
+    @field_validator("issuer", "jwks_url")
+    @classmethod
+    def validate_https(cls, value: str | None) -> str | None:
+        if value and urlparse(value).scheme != "https":
+            raise ValueError("OIDC issuer and jwks_url must use https")
+        return value
+
+
+def _default_tool_scopes() -> dict[str, str]:
+    return {
+        "finops__*": "finops:read",
+        "multicloud__*": "multicloud:read",
+        "*": "provider:call",
+    }
+
+
 class AuthenticationConfig(BaseModel):
-    """HTTP bearer authentication settings."""
+    """HTTP authentication settings: static bearer API key or OIDC JWTs."""
 
     enabled: bool = False
     type: str = "bearer"
     api_key_env: str = "MULTICLOUD_API_KEY"
     protect_metrics: bool = True
+    oidc: OIDCConfig = Field(default_factory=OIDCConfig)
+    # Ordered glob -> scope mapping; the first matching pattern decides. Applies to OIDC only.
+    tool_scopes: dict[str, str] = Field(default_factory=_default_tool_scopes)
 
     @field_validator("type")
     @classmethod
     def validate_type(cls, value: str) -> str:
-        if value != "bearer":
-            raise ValueError("security.authentication.type must currently be 'bearer'")
+        if value not in {"bearer", "oidc"}:
+            raise ValueError("security.authentication.type must be 'bearer' or 'oidc'")
         return value
+
+    @model_validator(mode="after")
+    def validate_oidc(self) -> AuthenticationConfig:
+        if self.enabled and self.type == "oidc" and not (self.oidc.issuer and self.oidc.audience):
+            raise ValueError("security.authentication.oidc requires issuer and audience")
+        return self
 
     @field_validator("api_key_env")
     @classmethod
@@ -134,16 +175,22 @@ class CorsConfig(BaseModel):
 
 
 class RateLimitConfig(BaseModel):
-    """Single-instance HTTP rate limiting settings."""
+    """HTTP rate limiting; use the redis backend when running several replicas."""
 
     enabled: bool = True
     requests_per_minute: int = Field(default=60, ge=1)
+    backend: str = Field(default="memory", pattern="^(memory|redis)$")
+    redis_url_env: str = "MULTICLOUD_REDIS_URL"
 
 
 class ToolPolicyConfig(BaseModel):
     """Tool safety mode."""
 
     mode: str = "allow_all"
+    # Passthrough tools allowed in read_only mode (fnmatch globs, e.g. "azure__monitor_*").
+    allowed_tools: list[str] = Field(default_factory=list)
+    # Also allow passthrough tools whose upstream server sets readOnlyHint.
+    trust_read_only_hints: bool = True
 
     @field_validator("mode")
     @classmethod
@@ -161,6 +208,21 @@ class SecurityConfig(BaseModel):
     max_request_size_bytes: int = Field(default=1_048_576, ge=1)
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     tool_policy: ToolPolicyConfig = Field(default_factory=ToolPolicyConfig)
+    # Reverse proxies (IPs/CIDRs) whose X-Forwarded-For header is trusted.
+    trusted_proxies: list[str] = Field(default_factory=list)
+    # HTTP refuses to bind a non-loopback address without authentication unless set.
+    allow_unauthenticated_remote: bool = False
+    # Send Strict-Transport-Security; enable when TLS terminates in front of the server.
+    hsts: bool = False
+
+    @field_validator("trusted_proxies")
+    @classmethod
+    def validate_proxies(cls, values: list[str]) -> list[str]:
+        import ipaddress
+
+        for value in values:
+            ipaddress.ip_network(value, strict=False)
+        return values
 
     @model_validator(mode="after")
     def validate_security(self) -> SecurityConfig:
@@ -179,9 +241,24 @@ class ServerConfig(BaseModel):
     """Server-level configuration."""
 
     name: str = "multicloud-mcp-server"
-    version: str = "0.1.0"
+    version: str = __version__
     transport: str = Field(default="stdio", pattern="^(stdio|http)$")
     http: HttpConfig = Field(default_factory=HttpConfig)
+
+
+class CacheConfig(BaseModel):
+    """FinOps result cache; the redis backend is shared across replicas."""
+
+    backend: str = Field(default="memory", pattern="^(memory|redis)$")
+    redis_url_env: str = "MULTICLOUD_REDIS_URL"
+    ttl_seconds: float = Field(default=300.0, gt=0)
+
+
+class ObservabilityConfig(BaseModel):
+    """OpenTelemetry tracing; exporter settings come from standard OTEL_* variables."""
+
+    tracing_enabled: bool = False
+    service_name: str = "multicloud-mcp-server"
 
 
 class LoggingConfig(BaseModel):
@@ -209,6 +286,8 @@ class Settings(BaseSettings):
     tool_exposure: ToolExposureConfig = Field(default_factory=ToolExposureConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
+    cache: CacheConfig = Field(default_factory=CacheConfig)
+    observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Settings:

@@ -1,6 +1,5 @@
 server:
   name: "multicloud-mcp-server"
-  version: "0.1.0"
   transport: "stdio"
   http:
     host: "127.0.0.1"
@@ -67,6 +66,10 @@ multicloud:
     - get_cost
     - breakdown
     - compare
+    - forecast
+    - anomalies
+    - budgets
+    - cost_by_tag
     - resource_mapper
     - list_providers
     - discover_resources

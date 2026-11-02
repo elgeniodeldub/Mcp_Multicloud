@@ -41,6 +41,38 @@ jobs:
       - run: uv run python -m mypy --strict src
       - run: uv run python -m build
 
+  azure-mcp-smoke:
+    # Starts the pinned @azure/mcp release and lists its tools on Linux and Windows.
+    # The "latest" leg is informational: when it turns green on Windows, the pin
+    # in config.yaml (held back for a Windows crash) can be raised.
+    name: azure-mcp / ${{ matrix.os }} / ${{ matrix.version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    continue-on-error: ${{ matrix.version == 'latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        version: [pinned, latest]
+    defaults:
+      run:
+        working-directory: multicloud-mcp-server
+    steps:
+      # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      # v6.0.0
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip "uv==0.12.3"
+      - run: uv sync --frozen
+      - name: Smoke test pinned Azure MCP
+        if: matrix.version == 'pinned'
+        run: uv run python scripts/azure_mcp_smoke.py
+      - name: Smoke test latest Azure MCP
+        if: matrix.version == 'latest'
+        run: uv run python scripts/azure_mcp_smoke.py --version latest
+
   dependency-audit:
     name: dependency-audit
     runs-on: ubuntu-latest
@@ -91,6 +123,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Build image
         run: docker build --tag multicloud-mcp-server:ci multicloud-mcp-server
+      - name: Verify preinstalled Azure MCP and default config
+        run: |
+          docker run --rm --entrypoint azmcp multicloud-mcp-server:ci --version
+          docker run --rm --entrypoint python multicloud-mcp-server:ci -c             "from multicloud_mcp.config import Settings; s = Settings.load(); assert s.providers['azure'].command == 'azmcp'"
       - name: Scan image with Trivy
         run: >-
           docker run --rm

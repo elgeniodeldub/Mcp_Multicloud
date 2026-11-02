@@ -1,0 +1,53 @@
+# Default configuration baked into the container image at
+# /etc/multicloud-mcp/config.yaml. Mount your own file over it, or point
+# MULTICLOUD_CONFIG_PATH at another path, to change it.
+#
+# Azure MCP is preinstalled in the image (see Dockerfile), so it starts with the
+# local `azmcp` binary and never downloads packages at runtime.
+
+server:
+  transport: "stdio"
+  http:
+    # Containers must listen on all interfaces; authentication is required for that.
+    host: "0.0.0.0"
+    port: 8080
+
+security:
+  authentication:
+    enabled: true
+    type: bearer
+    api_key_env: MULTICLOUD_API_KEY
+    protect_metrics: true
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+  tool_policy:
+    mode: read_only
+
+tool_exposure:
+  native_tools: true
+  provider_passthrough: true
+
+providers:
+  aws:
+    # The external awslabs MCP package is not compatible with this project's MCP
+    # SDK. Native AWS FinOps tools use boto3 directly.
+    enabled: false
+    command: "uvx"
+    args: ["awslabs.core-mcp-server@1.0.27"]
+    namespace: "aws"
+
+  azure:
+    enabled: true
+    command: "azmcp"
+    args: ["server", "start"]
+    env:
+      AZURE_SUBSCRIPTION_ID: "${AZURE_SUBSCRIPTION_ID}"
+    namespace: "azure"
+    health_check_interval: 30
+    timeout: 60
+    description: "Azure MCP Server"
+
+logging:
+  level: "INFO"
+  format: "json"
