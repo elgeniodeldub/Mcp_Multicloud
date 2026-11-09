@@ -11,6 +11,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # CodeQL requires init, autobuild and analyze to share one version.
+      codeql-action:
+        patterns: ["github/codeql-action*"]
   - package-ecosystem: docker
     directory: /multicloud-mcp-server
     schedule:
