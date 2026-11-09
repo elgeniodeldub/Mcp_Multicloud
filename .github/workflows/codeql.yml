@@ -23,13 +23,13 @@ jobs:
     steps:
       # v4.2.2
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      # v4.36.2
-      - uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e
+      # v4.39.3
+      - uses: github/codeql-action/init@f3bbb05694c2f74569081c28664c0866d64dec21
         with:
           languages: python
-      # v4.36.2
-      - uses: github/codeql-action/autobuild@8aad20d150bbac5944a9f9d289da16a4b0d87c1e
-      # v4.36.2
-      - uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e
+      # v4.39.3
+      - uses: github/codeql-action/autobuild@f3bbb05694c2f74569081c28664c0866d64dec21
+      # v4.39.3
+      - uses: github/codeql-action/analyze@f3bbb05694c2f74569081c28664c0866d64dec21
         with:
           category: /language:python
