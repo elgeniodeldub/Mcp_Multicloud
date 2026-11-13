@@ -8,6 +8,9 @@ Single MCP-facing service for AWS and Azure with dynamic provider routing.
 - `finops__compare_list_prices`: illustrative public list-price comparison for compute/storage/database.
 - `finops__gcp_list_prices`: public GCP SKU/list-price lookup through the Cloud Billing Catalog API.
 
+- `finops__playbooks`: FinOps Framework playbooks (list, search, get). Static guidance
+  that points to the cost tools above; no prices and no account access.
+
 GCP support is limited to public list prices. Actual GCP usage cost, BigQuery,
 and Cloud Billing exports are intentionally out of scope.
 

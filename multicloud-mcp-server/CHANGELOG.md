@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `finops__playbooks`: read-only FinOps Framework playbooks (`list`, `search`, `get`) packaged with the server. Ten playbooks cover all four framework domains: cost allocation and tagging, anomaly management, budgeting and forecasting, rightsizing, idle and orphaned resources, commitment-based discounts, storage optimization, unit economics, showback and chargeback, and policy and governance. Each lists the native tools that fetch its data. Enabled by default (`playbooks` in `native_tools.tools`).
+- `PRIVACY.md`: what the server reads, sends, logs, and stores.
+- `docs/PLAYBOOKS.md`: example questions and tool calls for each playbook.
+- README "What it does not do" section; the tool table now lists `finops__get_cost`, `finops__breakdown`, and `finops__compare`.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added

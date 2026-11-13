@@ -17,8 +17,12 @@ Unified Model Context Protocol (MCP) gateway for AWS and Azure with native FinOp
 | Tool | Purpose |
 |---|---|
 | `finops__get_actual_costs` | Actual non-amortized AWS/Azure billing data |
+| `finops__get_cost` | Normalized AWS/Azure cost totals (FOCUS-aligned, effective or billed cost) |
+| `finops__breakdown` | AWS/Azure cost by provider, account, service, category, or region |
+| `finops__compare` | AWS/Azure cost differences between providers or periods |
 | `finops__compare_list_prices` | Illustrative public list-price comparison |
 | `finops__gcp_list_prices` | Native GCP public SKU/list-price lookup |
+| `finops__playbooks` | FinOps Framework playbooks: list, search, and read step-by-step guidance |
 | `finops__forecast` | AWS/Azure spend forecast to a future date |
 | `finops__anomalies` | Cost anomalies (AWS Anomaly Detection, Azure statistical baseline) |
 | `finops__budgets` | Budget limit, actual, forecast, and alerts |
@@ -45,6 +49,30 @@ The policy layer complements rather than replaces AWS IAM and Azure RBAC.
 public SKU pricing only. It does not query actual GCP spend, BigQuery, billing
 exports, discounts, commitments, credits, taxes, or amortization. Configure
 `GCP_BILLING_API_KEY` in the process environment; never store it in YAML.
+
+`finops__playbooks` serves ten FinOps Framework playbooks packaged with the
+server (allocation and tagging, anomalies, budgets and forecasts, rightsizing,
+idle resources, commitments, storage, unit economics, showback/chargeback,
+governance). Each playbook names the tools that fetch the data it needs, so an
+agent can move from "what should we do" to "what do our numbers say". It reads
+no cloud account and contains no prices. See [how to ask and use each playbook](docs/PLAYBOOKS.md).
+
+## What it does not do
+
+- **No changes to your cloud.** Native `finops__*` and `multicloud__*` tools are
+  read-only. Provider passthrough tools can be limited with the `read_only`
+  policy, which complements IAM and RBAC and does not replace them.
+- **No invoiced or negotiated prices.** List-price tools are illustrative. Actual
+  cost tools return what the provider APIs report, not your contract terms.
+- **No actual GCP spend.** GCP is limited to the public price catalog.
+- **No certification.** `multicloud__compliance_check` reports readiness gaps;
+  it is not an audit, attestation, or certification.
+- **No legal, tax, or accounting advice.** Playbooks describe mechanics; your
+  finance, legal, and tax advisers decide.
+- **No natural-language reasoning.** The connected LLM or agent interprets
+  results; the server fetches data and returns structured results.
+
+See [PRIVACY.md](PRIVACY.md) for what the server sends, logs, and stores.
 
 ## Architecture
 
@@ -93,6 +121,7 @@ python -m mypy --strict src
 - [Architecture](docs/ARCHITECTURE.md)
 - [Features](docs/FEATURES.md)
 - [Tools](docs/TOOLS.md)
+- [FinOps playbooks: how to ask and use them](docs/PLAYBOOKS.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Security](docs/SECURITY.md)
 - [Operations](docs/OPERATIONS.md)

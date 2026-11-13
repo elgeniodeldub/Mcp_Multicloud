@@ -17,6 +17,7 @@ from multicloud_mcp.finops.tools.insights import (
     FinOpsForecastTool,
     FinOpsInsightsService,
 )
+from multicloud_mcp.finops.tools.playbooks import FinOpsPlaybooksTool
 from multicloud_mcp.health import HealthMonitor
 from multicloud_mcp.providers.base import ToolInfo
 from multicloud_mcp.router import ProviderRouter
@@ -79,6 +80,11 @@ def _finops_compare(context: NativeToolContext) -> RegisteredNativeTool:
     return RegisteredNativeTool(tool.get_tool_info(), tool.execute)
 
 
+def _playbooks(_context: NativeToolContext) -> RegisteredNativeTool:
+    tool = FinOpsPlaybooksTool()
+    return RegisteredNativeTool(tool.get_tool_info(), tool.execute)
+
+
 def _insight(tool_class: Any) -> ToolBuilder:
     def build(context: NativeToolContext) -> RegisteredNativeTool:
         tool = tool_class(context.insights_service)
@@ -138,6 +144,7 @@ def build_native_tool_registry(
         "actual_costs": _no_context(ActualCostsTool()),
         "list_price_comparison": _no_context(ListPriceComparisonTool()),
         "gcp_list_prices": _no_context(GCPListPricesTool()),
+        "playbooks": _playbooks,
         "resource_mapper": _no_context(ResourceMapperTool()),
         "list_providers": _list_providers,
         "discover_resources": _discover_resources,

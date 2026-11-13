@@ -21,5 +21,6 @@ mcp_servers:
         - finops__get_actual_costs
         - finops__compare_list_prices
         - finops__gcp_list_prices
+        - finops__playbooks
       prompts: false
       resources: false

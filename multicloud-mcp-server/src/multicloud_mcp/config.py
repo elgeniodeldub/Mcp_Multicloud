@@ -67,6 +67,7 @@ class MulticloudToolsConfig(BaseModel):
         default_factory=lambda: [
             "actual_costs",
             "gcp_list_prices",
+            "playbooks",
             "get_cost",
             "breakdown",
             "compare",

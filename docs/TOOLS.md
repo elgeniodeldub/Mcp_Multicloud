@@ -77,6 +77,38 @@ must be provided through `GCP_BILLING_API_KEY`; it is never stored in YAML or
 returned in the response. This tool does not query actual spend or use
 BigQuery/billing exports.
 
+## `finops__playbooks`
+
+```json
+{"action": "search", "query": "savings plans reservations", "limit": 3}
+```
+
+```json
+{"action": "get", "id": "commitment-based-discounts"}
+```
+
+Serves FinOps Framework playbooks packaged with the server. `action` is `list`
+(default), `search`, or `get`. `list` and `search` accept the filters `domain`,
+`capability`, `phase` (`inform`, `optimize`, `operate`), and `provider`
+(`aws`, `azure`, `gcp`). `search` ranks by keyword overlap with title, tags,
+capabilities, summary, and body; `limit` is 1-10 (default 5). `get` returns the
+full Markdown runbook.
+
+Playbooks shipped: `cost-allocation-tagging`, `anomaly-management`,
+`budgeting-and-forecasting`, `rightsizing-compute`,
+`idle-and-orphaned-resources`, `commitment-based-discounts`,
+`storage-optimization`, `unit-economics`, `showback-and-chargeback`,
+`policy-and-governance`. Each one covers when to use it, signals, steps, KPIs,
+and pitfalls, and lists the `finops__*` / `multicloud__*` tools that fetch the
+data it needs (`related_tools`).
+
+The result is labeled `content_type: "guidance"`. It reads no cloud account,
+makes no network call, and contains no prices or discount rates. Invalid
+arguments or an unknown `id` return `invalid_request`. Playbooks are aligned
+with the FinOps Foundation framework; they are not endorsed by it.
+
+Example questions and tool calls for each playbook: [PLAYBOOKS.md](PLAYBOOKS.md).
+
 ## `multicloud__map_resource`
 Maps a resource/service concept between AWS and Azure.
 

@@ -19,3 +19,7 @@ class UnsupportedFinOpsDimensionError(FinOpsError):
 
 class UnsupportedFinOpsMetricError(FinOpsError):
     """A provider cannot supply the requested metric."""
+
+
+class InvalidPlaybookRequestError(FinOpsError):
+    """A playbook lookup had invalid arguments or named an unknown playbook."""

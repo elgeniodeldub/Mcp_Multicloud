@@ -14,6 +14,7 @@ multicloud:
     - actual_costs
     - list_price_comparison
     - gcp_list_prices
+    - playbooks
     - list_providers
     - discover_resources
     - security_posture
